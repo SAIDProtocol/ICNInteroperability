@@ -12,6 +12,7 @@ mvn clean install
 
 ## Task list
 - [x] Skeleton of adapters, demultiplexing items, canonical formats
+- [x] Gateway with adapter interface
 - [ ] IP Adapter
   - [x] Consumer side (left) static
   - [ ] Provider side (right) static  \(dummy now\)
