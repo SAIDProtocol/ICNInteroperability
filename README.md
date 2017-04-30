@@ -15,18 +15,27 @@ mvn clean install
 - [x] Gateway with adapter interface
 - [ ] IP Adapter
   - [x] Consumer side (left) static
-  - [ ] Provider side (right) static  \(dummy now\)
+  - [x] Provider side (right) static
   - [ ] Consumer side (left) dynamic
   - [ ] Provider side (right) dynamic
+- [ ] IP Content provider
+  - [ ] static (similar to file server)
+  - [ ] dynamic (similar to ORS)
 - [ ] NDN Adapter
   - [ ] Consumer side (left) static
   - [ ] Provider side (right) static
   - [ ] Consumer side (left) dynamic
   - [ ] Provider side (right) dynamic
+- [ ] NDN Content provider
+  - [x] static (use ccnr)
+  - [ ] dynamic (similar to ORS)
 - [ ] MF Adapter
   - [ ] Consumer side (left) static
   - [ ] Provider side (right) static
   - [ ] Consumer side (left) dynamic
   - [ ] Provider side (right) dynamic
+- [ ] MF Content provider
+  - [ ] static (similar to file server)
+  - [ ] dynamic (similar to ORS)
 - [ ] Optimization: chunked transmission  
 

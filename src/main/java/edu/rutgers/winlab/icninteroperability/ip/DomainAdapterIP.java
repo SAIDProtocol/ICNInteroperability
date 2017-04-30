@@ -15,9 +15,12 @@ import edu.rutgers.winlab.icninteroperability.canonical.CanonicalRequestDynamic;
 import edu.rutgers.winlab.icninteroperability.canonical.CanonicalRequestStatic;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
+import java.net.HttpURLConnection;
 import java.net.InetSocketAddress;
+import java.net.URL;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.text.SimpleDateFormat;
@@ -42,7 +45,7 @@ public class DomainAdapterIP extends DomainAdapter {
     public static final String HTTP_HEADER_HOST = "Host";
     public static final String HTTP_HEADER_LAST_MODIFIED = "Last-Modified";
     public static final String HTTP_HEADER_IF_MODIFIED_SINCE = "If-Modified-Since";
-    public static final String OUTGOING_GATEWAY_DOMAIN_SUFFIX = ":10000";
+    public static final String OUTGOING_GATEWAY_DOMAIN_SUFFIX = "";
     public static final int HTTP_RESPONSE_CODE_OK = 200;
     public static final int HTTP_RESPONSE_CODE_NOT_MODIFIED = 304;
     public static final int HTTP_RESPONSE_CODE_BAD_REQUEST = 400;
@@ -76,10 +79,8 @@ public class DomainAdapterIP extends DomainAdapter {
     private void handleHttpRequest(HttpExchange exchange) {
 
 //        System.out.println("=======Headers=======");
-//        exchange.getRequestHeaders.entrySet().forEach((e) -> {
-//            e.getValue().forEach((val) -> {
-//                System.out.printf("%s: %s%n", e.getKey(), val);
-//            });
+//        exchange.getRequestHeaders().entrySet().forEach((e) -> {
+//            e.getValue().forEach(val -> System.out.printf("%s: %s%n", e.getKey(), val));
 //        });
 //        System.out.println("=======Header End=======");
 //        System.out.printf("Client: %s, Me: %s%n", exchange.getRemoteAddress(), exchange.getLocalAddress());
@@ -243,6 +244,7 @@ public class DomainAdapterIP extends DomainAdapter {
                     pendingClient.sendResponseHeaders(HTTP_RESPONSE_CODE_NOT_MODIFIED, -1);
                     pendingClient.getResponseBody().close();
                     pendingClient.close();
+                    LOG.log(Level.INFO, String.format("[%,d] Wrote Not Modified to %s", System.nanoTime(), pendingClient.getRemoteAddress()));
                 } catch (IOException ex) {
                     LOG.log(Level.SEVERE, String.format("[%,d] Error in writing response to %s", System.nanoTime(), pendingClient.getRemoteAddress()), ex);
                 }
@@ -274,6 +276,7 @@ public class DomainAdapterIP extends DomainAdapter {
             pendingClients.forEach((pendingClient) -> {
                 try {
                     writeBody(pendingClient, buf, responseSize, time == null ? null : new Date(time));
+                    LOG.log(Level.INFO, String.format("[%,d] Wrote response to %s", System.nanoTime(), pendingClient.getRemoteAddress()));
                 } catch (IOException ex) {
                     LOG.log(Level.SEVERE, String.format("[%,d] Error in writing response to %s", System.nanoTime(), pendingClient.getRemoteAddress()), ex);
                 }
@@ -315,7 +318,7 @@ public class DomainAdapterIP extends DomainAdapter {
         private final HashSet<DataHandler> handlers = new HashSet<>();
         private final Consumer<DemultiplexingEntity> contentFinishedHandler;
         private final ByteArrayOutputStream pendingResponse = new ByteArrayOutputStream();
-        private final Long responseTime = null;
+        private Long responseTime = null;
 
         public HttpRequestHandler(CanonicalRequest firstRequest, Consumer<DemultiplexingEntity> contentFinishedHandler) {
             this.firstRequest = firstRequest;
@@ -343,7 +346,7 @@ public class DomainAdapterIP extends DomainAdapter {
         public void run() {
             LOG.log(Level.INFO, String.format("[%,d] Start request for %s", System.nanoTime(), firstRequest.getDemux()));
             if (firstRequest instanceof CanonicalRequestStatic) {
-                requestStaticData();
+                requestStaticData((CanonicalRequestStatic) firstRequest);
             } else if (firstRequest instanceof CanonicalRequestDynamic) {
                 requestDynamicData();
             } else {
@@ -358,34 +361,68 @@ public class DomainAdapterIP extends DomainAdapter {
 //TODO:
         }
 
-        private void requestStaticData() {
-            DemultiplexingEntity demux = firstRequest.getDemux();
-            String domain = firstRequest.getDestDomain();
-            String name = firstRequest.getTargetName();
-            String url = null;
+        private void requestStaticData(CanonicalRequestStatic request) {
+            DemultiplexingEntity demux = request.getDemux();
+            String domain = request.getDestDomain();
+            String name = request.getTargetName();
+            String urlStr = null;
+            String host = null;
             if (domain.equals(CROSS_DOMAIN_HOST_IP)) {
-                url = "http://" + name;
+                urlStr = "http://" + name;
             } else {
                 try {
-                    url = String.format("http://%s%s/%s", domain, OUTGOING_GATEWAY_DOMAIN_SUFFIX, URLEncoder.encode(name, "UTF-8"));
+                    urlStr = String.format("http://%s%s/%s", domain, OUTGOING_GATEWAY_DOMAIN_SUFFIX, URLEncoder.encode(name, "UTF-8"));
                 } catch (UnsupportedEncodingException ex) {
                     LOG.log(Level.SEVERE, "Should not reach here, using UTF-8 encoding", ex);
                 }
+                host = domain;
             }
 
-            String response = String.format("<pre>%n\tA dummy echo response%n\tDomain=%s%n\tName=%s%n\tURL=%s%n</pre>%n", firstRequest.getDestDomain(), firstRequest.getTargetName(), url);
+            HttpURLConnection connection = null;
+            LOG.log(Level.INFO, String.format("[%,d] Start getting content demux: %s URL:%s", System.nanoTime(), demux, urlStr));
+            try {
+                URL url = new URL(urlStr);
+                if (host == null) {
+                    host = url.getHost();
+                }
+                connection = (HttpURLConnection) url.openConnection();
+                connection.setRequestMethod(HTTP_METHOD_STATIC);
+                connection.setRequestProperty(HTTP_HEADER_HOST, host);
+                if (request.getExclude() != null) {
+                    connection.setRequestProperty(HTTP_HEADER_IF_MODIFIED_SINCE, HTTP_DATE_FORMAT.format(new Date(request.getExclude())));
+                }
+                String lastModified = connection.getHeaderField(HTTP_HEADER_LAST_MODIFIED);
+                try {
+                    responseTime = HTTP_DATE_FORMAT.parse(lastModified).getTime();
+                    LOG.log(Level.INFO, String.format("[%,d] Get content demux:%s URL:%s LastModified:%d", System.nanoTime(), demux, urlStr, responseTime));
+                } catch (Exception e) {
 
-            byte[] buf = response.getBytes();
-            handlers.forEach((handler) -> {
-                handler.handleDataRetrieved(firstRequest.getDemux(), buf, buf.length, System.currentTimeMillis(), false);
-            });
+                }
+                byte[] buf = new byte[1500];
+                try (InputStream is = connection.getInputStream()) {
+                    int read;
+                    while ((read = is.read(buf)) > 0) {
+                        for (DataHandler handler : handlers) {
+                            handler.handleDataRetrieved(demux, buf, read, responseTime, false);
+                        }
+                    }
+                    handlers.forEach(handler -> handler.handleDataRetrieved(demux, buf, 0, responseTime, true)
+                    );
+                }
+                LOG.log(Level.INFO, String.format("[%,d] Finished getting content demux:%s URL:%s", System.nanoTime(), demux, urlStr));
 
-            byte[] buf2 = String.format("This is another line%n").getBytes();
-            handlers.forEach((handler) -> {
-                handler.handleDataRetrieved(firstRequest.getDemux(), buf2, buf2.length, null, true);
-            });
+            } catch (IOException ex) {
+                LOG.log(Level.SEVERE, String.format("[%,d] Error in retrieving content in IP demux:%s URL:%s", System.nanoTime(), demux, urlStr), ex);
+                handlers.forEach(handler -> handler.handleDataFailed(demux));
+            } finally {
+                if (connection != null) {
+                    try {
+                        connection.disconnect();
+                    } catch (Exception e) {
+                    }
+                }
+            }
         }
-
     }
 
 //========================= End region: right hand side, the repository domain =========================
