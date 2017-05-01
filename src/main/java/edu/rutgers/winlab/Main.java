@@ -7,7 +7,9 @@ package edu.rutgers.winlab;
 
 import edu.rutgers.winlab.icninteroperability.GatewayTwoDomains;
 import edu.rutgers.winlab.icninteroperability.ip.DomainAdapterIP;
+import edu.rutgers.winlab.icninteroperability.ndn.DomainAdapterNDN;
 import edu.rutgers.winlab.jmfapi.JMFException;
+import edu.rutgers.winlab.provider.CCNFileProxy;
 import edu.rutgers.winlab.provider.ProviderIP;
 import java.io.IOException;
 import org.ccnx.ccn.config.ConfigurationException;
@@ -24,7 +26,14 @@ public class Main {
         DomainAdapterIP d1 = new DomainAdapterIP("IP:80", 80), d2 = new DomainAdapterIP("IP:10000", 10000);
         GatewayTwoDomains g2d = new GatewayTwoDomains(d1, d2);
         g2d.start();
+    }
 
+    public static void runGatewayIPNDN() throws IOException {
+        System.out.println("Starting IP(80)-NDN GW");
+        DomainAdapterIP d1 = new DomainAdapterIP("d1", 80);
+        DomainAdapterNDN d2 = new DomainAdapterNDN("d2");
+        GatewayTwoDomains g2d = new GatewayTwoDomains(d1, d2);
+        g2d.start();
     }
 
     public static void runProvider(int port, String folder, int wait) throws IOException {
@@ -33,10 +42,17 @@ public class Main {
         provider.start();
     }
 
+    public static void runCCNFileProxy(String folder) throws IOException, MalformedContentNameStringException, ConfigurationException {
+        CCNFileProxy proxy = new CCNFileProxy(folder, CCNFileProxy.DEFAULT_URI);
+        proxy.start();
+    }
+
     public static void usage() {
         System.out.println("usage: java -jar XXX.jar %type% [%params%]");
         System.out.println("  type: ipip                         run IP(80)-IP(10000) GW");
+        System.out.println("  type: ipndn                        run IP(80)-NDN GW");
         System.out.println("  type: ipp %port% %folder% %wait%   run IP provider with port,  folder and static file wait time");
+        System.out.println("  type: ndnfp %folder%               run CCNFileProxy with folder");
     }
 
     public static void main(String[] args) throws IOException, ConfigurationException, MalformedContentNameStringException, JMFException {
@@ -54,6 +70,16 @@ public class Main {
                     return;
                 }
                 runProvider(Integer.parseInt(args[1]), args[2], Integer.parseInt(args[3]));
+                break;
+            case "ipndn":
+                runGatewayIPNDN();
+                break;
+            case "ndnfp":
+                if (args.length < 2) {
+                    usage();
+                    return;
+                }
+                runCCNFileProxy(args[1]);
                 break;
             default:
                 usage();

@@ -23,7 +23,7 @@ mvn clean install
   - [x] dynamic (similar to ORS)
 - [ ] NDN Adapter
   - [ ] Consumer side (left) static
-  - [ ] Provider side (right) static
+  - [x] Provider side (right) static
   - [ ] Consumer side (left) dynamic
   - [ ] Provider side (right) dynamic
 - [ ] NDN Content provider
