@@ -7,6 +7,18 @@ package edu.rutgers.winlab.icninteroperability.ip;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
+import static edu.rutgers.winlab.common.HTTPUtility.CROSS_DOMAIN_HOST_IP;
+import static edu.rutgers.winlab.common.HTTPUtility.HTTP_DATE_FORMAT;
+import static edu.rutgers.winlab.common.HTTPUtility.HTTP_HEADER_HOST;
+import static edu.rutgers.winlab.common.HTTPUtility.HTTP_HEADER_IF_MODIFIED_SINCE;
+import static edu.rutgers.winlab.common.HTTPUtility.HTTP_HEADER_LAST_MODIFIED;
+import static edu.rutgers.winlab.common.HTTPUtility.HTTP_METHOD_DYNAMIC;
+import static edu.rutgers.winlab.common.HTTPUtility.HTTP_METHOD_STATIC;
+import static edu.rutgers.winlab.common.HTTPUtility.HTTP_RESPONSE_UNSUPPORTED_ACTION_FORMAT;
+import static edu.rutgers.winlab.common.HTTPUtility.OUTGOING_GATEWAY_DOMAIN_SUFFIX;
+import static edu.rutgers.winlab.common.HTTPUtility.writeQuickResponse;
+import static edu.rutgers.winlab.common.HTTPUtility.writeBody;
+import static edu.rutgers.winlab.common.HTTPUtility.writeNotModified;
 import edu.rutgers.winlab.icninteroperability.DataHandler;
 import edu.rutgers.winlab.icninteroperability.DemultiplexingEntity;
 import edu.rutgers.winlab.icninteroperability.DomainAdapter;
@@ -16,19 +28,18 @@ import edu.rutgers.winlab.icninteroperability.canonical.CanonicalRequestStatic;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
+import static java.net.HttpURLConnection.HTTP_NOT_IMPLEMENTED;
+import static java.net.HttpURLConnection.HTTP_OK;
 import java.net.InetSocketAddress;
 import java.net.URL;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
-import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Objects;
-import java.util.TimeZone;
 import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -38,21 +49,6 @@ import java.util.logging.Logger;
  * @author ubuntu
  */
 public class DomainAdapterIP extends DomainAdapter {
-
-    public static final String CROSS_DOMAIN_HOST_IP = "INTR_IP";
-    public static final String HTTP_METHOD_STATIC = "GET";
-    public static final String HTTP_METHOD_DYNAMIC = "POST";
-    public static final String HTTP_HEADER_HOST = "Host";
-    public static final String HTTP_HEADER_LAST_MODIFIED = "Last-Modified";
-    public static final String HTTP_HEADER_IF_MODIFIED_SINCE = "If-Modified-Since";
-    public static final String OUTGOING_GATEWAY_DOMAIN_SUFFIX = "";
-    public static final int HTTP_RESPONSE_CODE_OK = 200;
-    public static final int HTTP_RESPONSE_CODE_NOT_MODIFIED = 304;
-    public static final int HTTP_RESPONSE_CODE_BAD_REQUEST = 400;
-    public static final int HTTP_RESPONSE_CODE_INTERNAL_SERVER_ERROR = 500;
-    public static final SimpleDateFormat HTTP_DATE_FORMAT = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz");
-    public static final String HTTP_RESPONSE_UNSUPPORTED_ACTION_FORMAT = "<h1>400 Bad Request</h1>Unsupported HTTP method: %s%n";
-    public static final String HTTP_RESPONSE_FAIL_INPROCESS = "<h1>500 Internal Server Error</h1>Error in processing: %s<pre>%s</pre>%n";
 
     private static final Logger LOG = Logger.getLogger(DomainAdapterIP.class.getName());
 
@@ -126,7 +122,7 @@ public class DomainAdapterIP extends DomainAdapter {
             default: {
                 LOG.log(Level.INFO, String.format("[%,d] Send response to %s, action (%s) not supportd", System.nanoTime(), exchange.getRemoteAddress(), requestMethod));
                 try {
-                    writeQuickResponse(exchange, HTTP_RESPONSE_CODE_BAD_REQUEST, HTTP_RESPONSE_UNSUPPORTED_ACTION_FORMAT, requestMethod);
+                    writeQuickResponse(exchange, HTTP_NOT_IMPLEMENTED, HTTP_RESPONSE_UNSUPPORTED_ACTION_FORMAT, requestMethod);
                 } catch (IOException ex) {
                     LOG.log(Level.SEVERE, String.format("[%,d] Error in writing response to %s", System.nanoTime(), exchange.getRemoteAddress()), ex);
                 }
@@ -165,32 +161,6 @@ public class DomainAdapterIP extends DomainAdapter {
 
     private void handleDynamicRequest(HttpExchange exchange, String domain, String name) {
         //TODO: finish this function
-    }
-
-    private static void writeQuickResponse(HttpExchange exchange, int responseCode, String format, Object... params) throws IOException {
-        byte[] data = String.format(format, params).getBytes();
-        exchange.sendResponseHeaders(responseCode, data.length);
-
-        try (OutputStream output = exchange.getResponseBody()) {
-            output.write(data);
-            output.flush();
-        }
-        exchange.close();
-    }
-
-    private static void writeBody(HttpExchange exchange, byte[] data, int size, Date lastModified) throws IOException {
-        if (lastModified != null) {
-            HTTP_DATE_FORMAT.setTimeZone(TimeZone.getTimeZone("GMT"));
-
-            exchange.getResponseHeaders().add(HTTP_HEADER_LAST_MODIFIED, HTTP_DATE_FORMAT.format(lastModified));
-        }
-        exchange.sendResponseHeaders(HTTP_RESPONSE_CODE_OK, size);
-
-        try (OutputStream output = exchange.getResponseBody()) {
-            output.write(data, 0, size);
-            output.flush();
-        }
-        exchange.close();
     }
 
     @Override
@@ -241,9 +211,7 @@ public class DomainAdapterIP extends DomainAdapter {
             responseFinished = true;
             pendingClients.forEach((pendingClient) -> {
                 try {
-                    pendingClient.sendResponseHeaders(HTTP_RESPONSE_CODE_NOT_MODIFIED, -1);
-                    pendingClient.getResponseBody().close();
-                    pendingClient.close();
+                    writeNotModified(pendingClient);
                     LOG.log(Level.INFO, String.format("[%,d] Wrote Not Modified to %s", System.nanoTime(), pendingClient.getRemoteAddress()));
                 } catch (IOException ex) {
                     LOG.log(Level.SEVERE, String.format("[%,d] Error in writing response to %s", System.nanoTime(), pendingClient.getRemoteAddress()), ex);
@@ -391,25 +359,29 @@ public class DomainAdapterIP extends DomainAdapter {
                 if (request.getExclude() != null) {
                     connection.setRequestProperty(HTTP_HEADER_IF_MODIFIED_SINCE, HTTP_DATE_FORMAT.format(new Date(request.getExclude())));
                 }
-                String lastModified = connection.getHeaderField(HTTP_HEADER_LAST_MODIFIED);
-                try {
-                    responseTime = HTTP_DATE_FORMAT.parse(lastModified).getTime();
-                    LOG.log(Level.INFO, String.format("[%,d] Get content demux:%s URL:%s LastModified:%d", System.nanoTime(), demux, urlStr, responseTime));
-                } catch (Exception e) {
+                if (connection.getResponseCode() != HTTP_OK) {
+                    handlers.forEach(handler -> handler.handleDataFailed(demux));
+                } else {
+                    String lastModified = connection.getHeaderField(HTTP_HEADER_LAST_MODIFIED);
+                    try {
+                        responseTime = HTTP_DATE_FORMAT.parse(lastModified).getTime();
+                        LOG.log(Level.INFO, String.format("[%,d] Get content demux:%s URL:%s LastModified:%d", System.nanoTime(), demux, urlStr, responseTime));
+                    } catch (Exception e) {
 
-                }
-                byte[] buf = new byte[1500];
-                try (InputStream is = connection.getInputStream()) {
-                    int read;
-                    while ((read = is.read(buf)) > 0) {
-                        for (DataHandler handler : handlers) {
-                            handler.handleDataRetrieved(demux, buf, read, responseTime, false);
-                        }
                     }
-                    handlers.forEach(handler -> handler.handleDataRetrieved(demux, buf, 0, responseTime, true)
-                    );
+                    byte[] buf = new byte[1500];
+                    try (InputStream is = connection.getInputStream()) {
+                        int read;
+                        while ((read = is.read(buf)) > 0) {
+                            for (DataHandler handler : handlers) {
+                                handler.handleDataRetrieved(demux, buf, read, responseTime, false);
+                            }
+                        }
+                        handlers.forEach(handler -> handler.handleDataRetrieved(demux, buf, 0, responseTime, true)
+                        );
+                    }
+                    LOG.log(Level.INFO, String.format("[%,d] Finished getting content demux:%s URL:%s", System.nanoTime(), demux, urlStr));
                 }
-                LOG.log(Level.INFO, String.format("[%,d] Finished getting content demux:%s URL:%s", System.nanoTime(), demux, urlStr));
 
             } catch (IOException ex) {
                 LOG.log(Level.SEVERE, String.format("[%,d] Error in retrieving content in IP demux:%s URL:%s", System.nanoTime(), demux, urlStr), ex);

@@ -8,6 +8,7 @@ package edu.rutgers.winlab;
 import edu.rutgers.winlab.icninteroperability.GatewayTwoDomains;
 import edu.rutgers.winlab.icninteroperability.ip.DomainAdapterIP;
 import edu.rutgers.winlab.jmfapi.JMFException;
+import edu.rutgers.winlab.provider.ProviderIP;
 import java.io.IOException;
 import org.ccnx.ccn.config.ConfigurationException;
 import org.ccnx.ccn.protocol.MalformedContentNameStringException;
@@ -18,10 +19,44 @@ import org.ccnx.ccn.protocol.MalformedContentNameStringException;
  */
 public class Main {
 
-    public static void main(String[] args) throws IOException, ConfigurationException, MalformedContentNameStringException, JMFException {
+    public static void runGateway() throws IOException {
         DomainAdapterIP d1 = new DomainAdapterIP("IP:80", 80), d2 = new DomainAdapterIP("IP:10000", 10000);
         GatewayTwoDomains g2d = new GatewayTwoDomains(d1, d2);
         g2d.start();
+
+    }
+
+    public static void runProvider(int port, String folder) throws IOException {
+        ProviderIP provider = new ProviderIP(80, folder);
+        provider.start();
+    }
+
+    public static void usage() {
+        System.out.println("usage: java -jar XXX.jar %type% [%params%]");
+        System.out.println("  type: g                   run gateway");
+        System.out.println("  type: p %port% %folder%   run provider with port and folder");
+    }
+
+    public static void main(String[] args) throws IOException, ConfigurationException, MalformedContentNameStringException, JMFException {
+        if (args.length == 0) {
+            usage();
+            return;
+        }
+        switch(args[0]) {
+            case "g":
+                runGateway();
+                break;
+            case "p":
+                if (args.length < 3) {
+                    usage();
+                    return;
+                }
+                runProvider(Integer.parseInt(args[1]), args[2]);
+                break;
+            default:
+                usage();
+                return;
+        }
 
 //        JMFAPI handle = new JMFAPI();
 //        handle.jmfopen("basic", new GUID(0xaabbcc));
