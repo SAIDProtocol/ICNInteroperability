@@ -37,7 +37,7 @@ public class HTTPUtility {
     public static final SimpleDateFormat HTTP_DATE_FORMAT = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz");
     public static final String HTTP_RESPONSE_ERROR_IN_READING_REQUEST_BODY = "<h1>400 Bad Request</h1>Error in reading request body: <pre>%s</pre>%n";
     public static final String HTTP_RESPONSE_FILE_NOT_FOUND_FORMAT = "<h1>404 Not Found</h1>Cannot find file: %s%n";
-    public static final String HTTP_RESPONSE_FAIL_INPROCESS = "<h1>500 Internal Server Error</h1>Error in processing: %s<pre>%s</pre>%n";
+    public static final String HTTP_RESPONSE_FAIL_IN_PROCESS = "<h1>500 Internal Server Error</h1>Error in processing: %s<pre>%s</pre>%n";
     public static final String HTTP_RESPONSE_HOST_SHOULD_NOT_BE_NULL = "<h1>501 Not Implemented</h1>Should have &quot;Host&quot; field in query.%n";
     public static final String HTTP_RESPONSE_CONTENT_LENGTH_SHOULD_NOT_BE_NULL = "<h1>501 Not Implemented</h1>Should have &quot;Content-Length&quot; field in query.%n";
     public static final String HTTP_RESPONSE_UNSUPPORTED_ACTION_FORMAT = "<h1>501 Not Implemented</h1>Unsupported HTTP method: %s%n";
@@ -121,5 +121,32 @@ public class HTTPUtility {
         } catch (UnsupportedEncodingException e) {
 // should not reach here!
         }
+    }
+
+    /**
+     * Read the request body from an http exchange
+     *
+     * @param exchange the http session to be read from.
+     * @return response body if success, null if content-length < 0.
+     * @throws IOException if read failes.
+     */
+    public static byte[] readRequestBody(HttpExchange exchange) throws Exception {
+        String strRequestBodyLen = exchange.getRequestHeaders().getFirst(HTTP_HEADER_CONTENT_LENGTH);
+        int requestBodyLen = -1;
+        try {
+            requestBodyLen = Integer.parseInt(strRequestBodyLen);
+        } catch (Exception e) {
+            // ignore if missing, cannot understand
+        }
+        if (requestBodyLen < 0) {
+            return null;
+        }
+        byte[] buf = new byte[requestBodyLen];
+        int start = 0;
+        while (start < requestBodyLen) {
+            int read = exchange.getRequestBody().read(buf, start, requestBodyLen - start);
+            start += read;
+        }
+        return buf;
     }
 }

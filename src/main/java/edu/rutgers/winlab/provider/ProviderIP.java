@@ -8,7 +8,6 @@ package edu.rutgers.winlab.provider;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import static edu.rutgers.winlab.common.HTTPUtility.HTTP_DATE_FORMAT;
-import static edu.rutgers.winlab.common.HTTPUtility.HTTP_HEADER_CONTENT_LENGTH;
 import static edu.rutgers.winlab.common.HTTPUtility.HTTP_HEADER_IF_MODIFIED_SINCE;
 import static edu.rutgers.winlab.common.HTTPUtility.HTTP_METHOD_DYNAMIC;
 import static edu.rutgers.winlab.common.HTTPUtility.HTTP_METHOD_STATIC;
@@ -17,6 +16,7 @@ import static edu.rutgers.winlab.common.HTTPUtility.HTTP_RESPONSE_ERROR_IN_READI
 import static edu.rutgers.winlab.common.HTTPUtility.HTTP_RESPONSE_FILE_NOT_FOUND_FORMAT;
 import static edu.rutgers.winlab.common.HTTPUtility.HTTP_RESPONSE_UNSUPPORTED_ACTION_FORMAT;
 import static edu.rutgers.winlab.common.HTTPUtility.parseQuery;
+import static edu.rutgers.winlab.common.HTTPUtility.readRequestBody;
 import static edu.rutgers.winlab.common.HTTPUtility.writeBody;
 import static edu.rutgers.winlab.common.HTTPUtility.writeNotModified;
 import static edu.rutgers.winlab.common.HTTPUtility.writeQuickResponse;
@@ -34,6 +34,7 @@ import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import static edu.rutgers.winlab.common.HTTPUtility.writeBody;
 
 /**
  *
@@ -46,9 +47,11 @@ public class ProviderIP {
 
     private final String folder;
     private final HttpServer server;
+    private final int staticFileWaitTime;
 
-    public ProviderIP(int port, String folder) throws IOException {
+    public ProviderIP(int port, String folder, int staticFileWaitTime) throws IOException {
         this.folder = folder;
+        this.staticFileWaitTime = staticFileWaitTime;
         server = HttpServer.create(new InetSocketAddress(port), 0);
         server.createContext("/", this::handleHttpExchange);
         server.setExecutor(Executors.newCachedThreadPool());
@@ -98,6 +101,13 @@ public class ProviderIP {
             return;
         }
 
+        if (staticFileWaitTime > 0) {
+            try {
+                Thread.sleep(staticFileWaitTime);
+            } catch (InterruptedException e) {
+            }
+        }
+
         if (exclude != null && exclude >= f.lastModified()) {
             try {
                 LOG.log(Level.INFO, String.format("[%,d] File not modified write 304 URI:%s remote:%s f:%s exclude:%d", System.nanoTime(), uri, exchange.getRemoteAddress(), f, exclude));
@@ -117,29 +127,17 @@ public class ProviderIP {
 
     private void handleDynamicContent(HttpExchange exchange) {
         String uri = exchange.getRequestURI().toString();
-        String strRequestBodyLen = exchange.getRequestHeaders().getFirst(HTTP_HEADER_CONTENT_LENGTH);
-        int requestBodyLen = -1;
+        byte[] buf;
         try {
-            requestBodyLen = Integer.parseInt(strRequestBodyLen);
-        } catch (Exception e) {
-            // ignore if missing, cannot understand
-        }
-        if (requestBodyLen < 0) {
-            try {
-                LOG.log(Level.INFO, String.format("[%,d] Content-Length field missing in header, respond not supported", System.nanoTime()));
-                writeQuickResponse(exchange, HTTP_NOT_IMPLEMENTED, HTTP_RESPONSE_CONTENT_LENGTH_SHOULD_NOT_BE_NULL);
-            } catch (IOException ex) {
-                LOG.log(Level.SEVERE, String.format("[%,d] Error in writing 501 to client %s", System.nanoTime(), exchange.getRemoteAddress()), ex);
-            }
-            return;
-        }
-        LOG.log(Level.INFO, String.format("[%,d] Received dynamic request URI:%s remote:%s reqBodyLen:%d", System.nanoTime(), uri, exchange.getRemoteAddress(), requestBodyLen));
-        byte[] buf = new byte[requestBodyLen];
-        int start = 0;
-        try {
-            while (start < requestBodyLen) {
-                int read = exchange.getRequestBody().read(buf, start, requestBodyLen - start);
-                start += read;
+            buf = readRequestBody(exchange);
+            if (buf == null) {
+                try {
+                    LOG.log(Level.INFO, String.format("[%,d] Content-Length field missing in header, respond not supported", System.nanoTime()));
+                    writeQuickResponse(exchange, HTTP_NOT_IMPLEMENTED, HTTP_RESPONSE_CONTENT_LENGTH_SHOULD_NOT_BE_NULL);
+                } catch (IOException ex) {
+                    LOG.log(Level.SEVERE, String.format("[%,d] Error in writing 501 to client %s", System.nanoTime(), exchange.getRemoteAddress()), ex);
+                }
+                return;
             }
         } catch (Exception ex) {
             try {
@@ -150,6 +148,8 @@ public class ProviderIP {
             }
             return;
         }
+        LOG.log(Level.INFO, String.format("[%,d] Received dynamic request URI:%s remote:%s reqBodyLen:%d", System.nanoTime(), uri, exchange.getRemoteAddress(), buf.length));
+
         String queryString = new String(buf);
         LOG.log(Level.INFO, String.format("[%,d] request body: %s", System.nanoTime(), queryString));
         Map<String, List<String>> parameters = new HashMap<>();
@@ -168,8 +168,8 @@ public class ProviderIP {
             }
         }
 
-        String echo = "This is a simple echo application%nRequest string is: %s%nBye!%n";
-        byte[] result = String.format(echo, queryString).getBytes();
+        String echo = "This is a simple echo application%nRequest string is: %s%nNow: %s%nBye!%n";
+        byte[] result = String.format(echo, queryString, HTTP_DATE_FORMAT.format(new Date())).getBytes();
         try {
             Date lastModified = new Date();
             LOG.log(Level.INFO, String.format("[%,d] Write file to client URI:%s remote:%s last-modified:%d, len:%d", System.nanoTime(), uri, exchange.getRemoteAddress(), lastModified.getTime(), result.length));

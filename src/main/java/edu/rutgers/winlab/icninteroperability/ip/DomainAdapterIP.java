@@ -14,12 +14,15 @@ import static edu.rutgers.winlab.common.HTTPUtility.HTTP_HEADER_IF_MODIFIED_SINC
 import static edu.rutgers.winlab.common.HTTPUtility.HTTP_HEADER_LAST_MODIFIED;
 import static edu.rutgers.winlab.common.HTTPUtility.HTTP_METHOD_DYNAMIC;
 import static edu.rutgers.winlab.common.HTTPUtility.HTTP_METHOD_STATIC;
+import static edu.rutgers.winlab.common.HTTPUtility.HTTP_RESPONSE_CONTENT_LENGTH_SHOULD_NOT_BE_NULL;
+import static edu.rutgers.winlab.common.HTTPUtility.HTTP_RESPONSE_ERROR_IN_READING_REQUEST_BODY;
 import static edu.rutgers.winlab.common.HTTPUtility.HTTP_RESPONSE_HOST_SHOULD_NOT_BE_NULL;
 import static edu.rutgers.winlab.common.HTTPUtility.HTTP_RESPONSE_UNSUPPORTED_ACTION_FORMAT;
 import static edu.rutgers.winlab.common.HTTPUtility.OUTGOING_GATEWAY_DOMAIN_SUFFIX;
-import static edu.rutgers.winlab.common.HTTPUtility.writeQuickResponse;
+import static edu.rutgers.winlab.common.HTTPUtility.readRequestBody;
 import static edu.rutgers.winlab.common.HTTPUtility.writeBody;
 import static edu.rutgers.winlab.common.HTTPUtility.writeNotModified;
+import static edu.rutgers.winlab.common.HTTPUtility.writeQuickResponse;
 import edu.rutgers.winlab.icninteroperability.DataHandler;
 import edu.rutgers.winlab.icninteroperability.DemultiplexingEntity;
 import edu.rutgers.winlab.icninteroperability.DomainAdapter;
@@ -29,8 +32,11 @@ import edu.rutgers.winlab.icninteroperability.canonical.CanonicalRequestStatic;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
+import static java.net.HttpURLConnection.HTTP_BAD_REQUEST;
+import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 import static java.net.HttpURLConnection.HTTP_NOT_IMPLEMENTED;
 import static java.net.HttpURLConnection.HTTP_OK;
 import java.net.InetSocketAddress;
@@ -44,6 +50,8 @@ import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import static edu.rutgers.winlab.common.HTTPUtility.HTTP_RESPONSE_FAIL_IN_PROCESS;
+import static edu.rutgers.winlab.common.HTTPUtility.writeBody;
 
 /**
  *
@@ -172,8 +180,29 @@ public class DomainAdapterIP extends DomainAdapter {
 
     private void handleDynamicRequest(HttpExchange exchange, String domain, String name) {
 
-        // TODO: read string from request body
-        byte[] body = null;
+        byte[] body;
+        try {
+            body = readRequestBody(exchange);
+            if (body == null) {
+                try {
+                    LOG.log(Level.INFO, String.format("[%,d] Content-Length field missing in header, respond not supported", System.nanoTime()));
+                    writeQuickResponse(exchange, HTTP_NOT_IMPLEMENTED, HTTP_RESPONSE_CONTENT_LENGTH_SHOULD_NOT_BE_NULL);
+                } catch (IOException ex) {
+                    LOG.log(Level.SEVERE, String.format("[%,d] Error in writing 501 to client %s", System.nanoTime(), exchange.getRemoteAddress()), ex);
+                }
+                return;
+            }
+        } catch (Exception ex) {
+            try {
+                LOG.log(Level.SEVERE, String.format("[%,d] Error in reading client body", System.nanoTime()), ex);
+                writeQuickResponse(exchange, HTTP_BAD_REQUEST, HTTP_RESPONSE_ERROR_IN_READING_REQUEST_BODY, ex.toString());
+            } catch (Exception ex2) {
+                LOG.log(Level.SEVERE, String.format("[%,d] Error in writing 400 to client %s", System.nanoTime(), exchange.getRemoteAddress()), ex2);
+            }
+            return;
+        }
+        LOG.log(Level.INFO, String.format("[%,d] Received dynamic request name:%s remote:%s reqBodyLen:%d", System.nanoTime(), name, exchange.getRemoteAddress(), body.length));
+
         CanonicalRequestDynamic req = new CanonicalRequestDynamic(domain, new DemultiplexingEntityIPDynamic(exchange.getRemoteAddress()), name, body, this);
 
         ResponseHandler handler;
@@ -181,11 +210,18 @@ public class DomainAdapterIP extends DomainAdapter {
         synchronized (pendingRequests) {
             handler = pendingRequests.get(demux);
             if (handler == null) {
-                pendingRequests.put(demux, new ResponseHandler());
+                pendingRequests.put(demux, handler = new ResponseHandler());
+                handler.addClient(exchange);
                 LOG.log(Level.INFO, String.format("[%,d] Got canonical request: %s, need raise: %b", System.nanoTime(), req, true));
                 raiseRequest(req);
             } else {
-// TODO: should not reach here, dynamic request should have no pending interests
+                // should not reach here, dynamic request should have no pending interests
+                try {
+                    LOG.log(Level.SEVERE, String.format("[%,d] Having duplicate demux %s for dynamic request", System.nanoTime(), demux));
+                    writeQuickResponse(exchange, HTTP_INTERNAL_ERROR, HTTP_RESPONSE_FAIL_IN_PROCESS, "Having duplicate demux for dynamic request", demux);
+                } catch (Exception ex2) {
+                    LOG.log(Level.SEVERE, String.format("[%,d] Error in writing 500 to client %s", System.nanoTime(), exchange.getRemoteAddress()), ex2);
+                }
             }
         }
     }
@@ -352,16 +388,18 @@ public class DomainAdapterIP extends DomainAdapter {
             contentFinishedHandler.accept(firstRequest.getDemux());
         }
 
-        private void requestDynamicData(CanonicalRequestDynamic request) {
-//TODO:
+        private static class UrlStrAndHost {
+
+            public String urlStr, host;
+
+            public UrlStrAndHost(String urlStr, String host) {
+                this.urlStr = urlStr;
+                this.host = host;
+            }
         }
 
-        private void requestStaticData(CanonicalRequestStatic request) {
-            DemultiplexingEntity demux = request.getDemux();
-            String domain = request.getDestDomain();
-            String name = request.getTargetName();
-            String urlStr = null;
-            String host = null;
+        private UrlStrAndHost parseRequest(String domain, String name) {
+            String urlStr = null, host = null;
             if (domain.equals(CROSS_DOMAIN_HOST_IP)) {
                 urlStr = "http://" + name;
             } else {
@@ -372,46 +410,98 @@ public class DomainAdapterIP extends DomainAdapter {
                 }
                 host = domain;
             }
+            return new UrlStrAndHost(urlStr, host);
+        }
+
+        private void forwardResponse(DemultiplexingEntity demux, String urlStr, HttpURLConnection connection) throws IOException {
+            if (connection.getResponseCode() != HTTP_OK) {
+                handlers.forEach(handler -> handler.handleDataFailed(demux));
+            } else {
+                String lastModified = connection.getHeaderField(HTTP_HEADER_LAST_MODIFIED);
+                try {
+                    responseTime = HTTP_DATE_FORMAT.parse(lastModified).getTime();
+                    LOG.log(Level.INFO, String.format("[%,d] Get content demux:%s URL:%s LastModified:%d", System.nanoTime(), demux, urlStr, responseTime));
+                } catch (Exception e) {
+
+                }
+                byte[] buf = new byte[1500];
+                try (InputStream is = connection.getInputStream()) {
+                    int read;
+                    while ((read = is.read(buf)) > 0) {
+                        for (DataHandler handler : handlers) {
+                            handler.handleDataRetrieved(demux, buf, read, responseTime, false);
+                        }
+                    }
+                    handlers.forEach(handler -> handler.handleDataRetrieved(demux, buf, 0, responseTime, true)
+                    );
+                }
+                LOG.log(Level.INFO, String.format("[%,d] Finished getting content demux:%s URL:%s", System.nanoTime(), demux, urlStr));
+            }
+        }
+
+        private void requestDynamicData(CanonicalRequestDynamic request) {
+            DemultiplexingEntity demux = request.getDemux();
+            String domain = request.getDestDomain();
+            String name = request.getTargetName();
+            UrlStrAndHost urlStrAndHost = parseRequest(domain, name);
 
             HttpURLConnection connection = null;
-            LOG.log(Level.INFO, String.format("[%,d] Start getting content demux: %s URL:%s", System.nanoTime(), demux, urlStr));
+            LOG.log(Level.INFO, String.format("[%,d] Start getting content demux: %s URL:%s", System.nanoTime(), demux, urlStrAndHost.urlStr));
             try {
-                URL url = new URL(urlStr);
-                if (host == null) {
-                    host = url.getHost();
+                URL url = new URL(urlStrAndHost.urlStr);
+                if (urlStrAndHost.host == null) {
+                    urlStrAndHost.host = url.getHost();
+                }
+                connection = (HttpURLConnection) url.openConnection();
+                connection.setRequestMethod(HTTP_METHOD_DYNAMIC);
+                connection.setRequestProperty(HTTP_HEADER_HOST, urlStrAndHost.host);
+                connection.setUseCaches(false);
+
+                if (request.getInput().length > 0) {
+                    connection.setDoOutput(true);
+                    try (OutputStream output = connection.getOutputStream()) {
+                        output.write(request.getInput());
+                    }
+                }
+
+                forwardResponse(demux, urlStrAndHost.urlStr, connection);
+
+            } catch (Exception ex) {
+                LOG.log(Level.SEVERE, String.format("[%,d] Error in retrieving content in IP demux:%s URL:%s", System.nanoTime(), demux, urlStrAndHost.urlStr), ex);
+                handlers.forEach(handler -> handler.handleDataFailed(demux));
+            } finally {
+                if (connection != null) {
+                    try {
+                        connection.disconnect();
+                    } catch (Exception e) {
+                    }
+                }
+            }
+        }
+
+        private void requestStaticData(CanonicalRequestStatic request) {
+            DemultiplexingEntity demux = request.getDemux();
+            String domain = request.getDestDomain();
+            String name = request.getTargetName();
+            UrlStrAndHost urlStrAndHost = parseRequest(domain, name);
+
+            HttpURLConnection connection = null;
+            LOG.log(Level.INFO, String.format("[%,d] Start getting content demux: %s URL:%s", System.nanoTime(), demux, urlStrAndHost.urlStr));
+            try {
+                URL url = new URL(urlStrAndHost.urlStr);
+                if (urlStrAndHost.host == null) {
+                    urlStrAndHost.host = url.getHost();
                 }
                 connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod(HTTP_METHOD_STATIC);
-                connection.setRequestProperty(HTTP_HEADER_HOST, host);
+                connection.setRequestProperty(HTTP_HEADER_HOST, urlStrAndHost.host);
                 if (request.getExclude() != null) {
                     connection.setRequestProperty(HTTP_HEADER_IF_MODIFIED_SINCE, HTTP_DATE_FORMAT.format(new Date(request.getExclude())));
                 }
-                if (connection.getResponseCode() != HTTP_OK) {
-                    handlers.forEach(handler -> handler.handleDataFailed(demux));
-                } else {
-                    String lastModified = connection.getHeaderField(HTTP_HEADER_LAST_MODIFIED);
-                    try {
-                        responseTime = HTTP_DATE_FORMAT.parse(lastModified).getTime();
-                        LOG.log(Level.INFO, String.format("[%,d] Get content demux:%s URL:%s LastModified:%d", System.nanoTime(), demux, urlStr, responseTime));
-                    } catch (Exception e) {
-
-                    }
-                    byte[] buf = new byte[1500];
-                    try (InputStream is = connection.getInputStream()) {
-                        int read;
-                        while ((read = is.read(buf)) > 0) {
-                            for (DataHandler handler : handlers) {
-                                handler.handleDataRetrieved(demux, buf, read, responseTime, false);
-                            }
-                        }
-                        handlers.forEach(handler -> handler.handleDataRetrieved(demux, buf, 0, responseTime, true)
-                        );
-                    }
-                    LOG.log(Level.INFO, String.format("[%,d] Finished getting content demux:%s URL:%s", System.nanoTime(), demux, urlStr));
-                }
+                forwardResponse(demux, urlStrAndHost.urlStr, connection);
 
             } catch (Exception ex) {
-                LOG.log(Level.SEVERE, String.format("[%,d] Error in retrieving content in IP demux:%s URL:%s", System.nanoTime(), demux, urlStr), ex);
+                LOG.log(Level.SEVERE, String.format("[%,d] Error in retrieving content in IP demux:%s URL:%s", System.nanoTime(), demux, urlStrAndHost.urlStr), ex);
                 handlers.forEach(handler -> handler.handleDataFailed(demux));
             } finally {
                 if (connection != null) {

@@ -1,0 +1,121 @@
+Scenario: IP-IP, 2 clients request for a same file, server waits 5 seconds before responding
+What we see: two requests aggregated at gw, multicasted when data got
+
+INFO: [26,788,686,179,705] Receive request from /192.168.56.101:44950
+INFO: [26,788,720,912,871] Got canonical request: CREQ_S{D=INTR_IP,N=192.168.56.104/key,T=null}, need raise: true
+INFO: [26,788,722,445,186] put request CREQ_S{D=INTR_IP,N=192.168.56.104/key,T=null} from DomainAdapter:{N=IP:80} to queue
+INFO: [26,788,728,898,361] got request CREQ_S{D=INTR_IP,N=192.168.56.104/key,T=null} from DomainAdapter:{N=IP:80} in queue
+INFO: [26,788,732,470,633] forward CREQ_S{D=INTR_IP,N=192.168.56.104/key,T=null} from DomainAdapter:{N=IP:80} to DomainAdapter:{N=IP:10000}
+INFO: [26,788,735,031,995] Got domain request for CREQ_S{D=INTR_IP,N=192.168.56.104/key,T=null}
+INFO: [26,788,738,252,091] Start request for Demux(Static):{D=INTR_IP,N=192.168.56.104/key,T=null}
+INFO: [26,788,742,759,479] Start getting content demux: Demux(Static):{D=INTR_IP,N=192.168.56.104/key,T=null} URL:http://192.168.56.104/key
+INFO: [26,789,643,356,321] Receive request from /192.168.56.101:44948
+INFO: [26,789,644,567,722] Got canonical request: CREQ_S{D=INTR_IP,N=192.168.56.104/key,T=null}, need raise: false
+INFO: [26,793,812,538,506] Get content demux:Demux(Static):{D=INTR_IP,N=192.168.56.104/key,T=null} URL:http://192.168.56.104/key LastModified:1493423820000
+INFO: [26,793,830,165,793] Wrote response to /192.168.56.101:44948
+INFO: [26,793,834,183,053] Wrote response to /192.168.56.101:44950
+INFO: [26,793,838,161,476] Finished getting content demux:Demux(Static):{D=INTR_IP,N=192.168.56.104/key,T=null} URL:http://192.168.56.104/key
+
+Scenario: IP-IP, 2 clients request for a same file, but different "if-modified-since", server waits 5 seconds before responding
+What we see: two requests cannot (and should not) be aggregated
+
+INFO: [26,868,274,463,541] Receive request from /192.168.56.101:44952
+INFO: [26,868,279,558,629] Got canonical request: CREQ_S{D=INTR_IP,N=192.168.56.104/key,T=1493420400000}, need raise: true
+INFO: [26,868,280,735,181] put request CREQ_S{D=INTR_IP,N=192.168.56.104/key,T=1493420400000} from DomainAdapter:{N=IP:80} to queue
+INFO: [26,868,281,960,056] Receive request from /192.168.56.101:44954
+INFO: [26,868,284,581,911] Got canonical request: CREQ_S{D=INTR_IP,N=192.168.56.104/key,T=null}, need raise: true
+INFO: [26,868,285,336,111] put request CREQ_S{D=INTR_IP,N=192.168.56.104/key,T=null} from DomainAdapter:{N=IP:80} to queue
+INFO: [26,868,283,492,302] got request CREQ_S{D=INTR_IP,N=192.168.56.104/key,T=1493420400000} from DomainAdapter:{N=IP:80} in queue
+INFO: [26,868,286,871,362] forward CREQ_S{D=INTR_IP,N=192.168.56.104/key,T=1493420400000} from DomainAdapter:{N=IP:80} to DomainAdapter:{N=IP:10000}
+INFO: [26,868,290,268,200] Got domain request for CREQ_S{D=INTR_IP,N=192.168.56.104/key,T=1493420400000}
+INFO: [26,868,292,442,679] got request CREQ_S{D=INTR_IP,N=192.168.56.104/key,T=null} from DomainAdapter:{N=IP:80} in queue
+INFO: [26,868,294,489,333] forward CREQ_S{D=INTR_IP,N=192.168.56.104/key,T=null} from DomainAdapter:{N=IP:80} to DomainAdapter:{N=IP:10000}
+INFO: [26,868,295,275,542] Got domain request for CREQ_S{D=INTR_IP,N=192.168.56.104/key,T=null}
+INFO: [26,868,296,386,802] Start request for Demux(Static):{D=INTR_IP,N=192.168.56.104/key,T=1493420400000}
+INFO: [26,868,298,013,212] Start getting content demux: Demux(Static):{D=INTR_IP,N=192.168.56.104/key,T=1493420400000} URL:http://192.168.56.104/key
+INFO: [26,868,301,742,627] Start request for Demux(Static):{D=INTR_IP,N=192.168.56.104/key,T=null}
+INFO: [26,868,306,676,213] Start getting content demux: Demux(Static):{D=INTR_IP,N=192.168.56.104/key,T=null} URL:http://192.168.56.104/key
+INFO: [26,873,312,351,895] Get content demux:Demux(Static):{D=INTR_IP,N=192.168.56.104/key,T=1493420400000} URL:http://192.168.56.104/key LastModified:1493423820000
+INFO: [26,873,317,397,825] Wrote response to /192.168.56.101:44952
+INFO: [26,873,321,851,194] Finished getting content demux:Demux(Static):{D=INTR_IP,N=192.168.56.104/key,T=1493420400000} URL:http://192.168.56.104/key
+INFO: [26,873,319,713,028] Get content demux:Demux(Static):{D=INTR_IP,N=192.168.56.104/key,T=null} URL:http://192.168.56.104/key LastModified:1493423820000
+INFO: [26,873,327,350,211] Wrote response to /192.168.56.101:44954
+INFO: [26,873,329,243,380] Finished getting content demux:Demux(Static):{D=INTR_IP,N=192.168.56.104/key,T=null} URL:http://192.168.56.104/key
+
+Scenario: IP-IP, 2 clients request for dynamic contents
+What we see: two requests cannot (and should not) be aggregated
+
+INFO: [27,084,306,902,913] Receive request from /192.168.56.101:44962
+INFO: [27,084,308,280,786] Received dynamic request name:192.168.56.104/ remote:/192.168.56.101:44962 reqBodyLen:10
+INFO: [27,084,311,156,997] Got canonical request: CREQ_D{D=INTR_IP,N=192.168.56.104/,I.len=10}, need raise: true
+INFO: [27,084,313,395,858] put request CREQ_D{D=INTR_IP,N=192.168.56.104/,I.len=10} from DomainAdapter:{N=IP:80} to queue
+INFO: [27,084,314,220,604] got request CREQ_D{D=INTR_IP,N=192.168.56.104/,I.len=10} from DomainAdapter:{N=IP:80} in queue
+INFO: [27,084,315,239,304] forward CREQ_D{D=INTR_IP,N=192.168.56.104/,I.len=10} from DomainAdapter:{N=IP:80} to DomainAdapter:{N=IP:10000}
+INFO: [27,084,315,789,631] Got domain request for CREQ_D{D=INTR_IP,N=192.168.56.104/,I.len=10}
+INFO: [27,084,317,127,647] Start request for Demux(DynamicIP){C=/192.168.56.101:44962}
+INFO: [27,084,319,593,794] Start getting content demux: Demux(DynamicIP){C=/192.168.56.101:44962} URL:http://192.168.56.104/
+INFO: [27,085,082,499,249] Receive request from /192.168.56.101:44964
+INFO: [27,085,083,182,144] Received dynamic request name:192.168.56.104/ remote:/192.168.56.101:44964 reqBodyLen:10
+INFO: [27,085,087,673,604] Got canonical request: CREQ_D{D=INTR_IP,N=192.168.56.104/,I.len=10}, need raise: true
+INFO: [27,085,088,232,250] put request CREQ_D{D=INTR_IP,N=192.168.56.104/,I.len=10} from DomainAdapter:{N=IP:80} to queue
+INFO: [27,085,089,061,099] got request CREQ_D{D=INTR_IP,N=192.168.56.104/,I.len=10} from DomainAdapter:{N=IP:80} in queue
+INFO: [27,085,092,561,828] forward CREQ_D{D=INTR_IP,N=192.168.56.104/,I.len=10} from DomainAdapter:{N=IP:80} to DomainAdapter:{N=IP:10000}
+INFO: [27,085,095,526,871] Got domain request for CREQ_D{D=INTR_IP,N=192.168.56.104/,I.len=10}
+INFO: [27,085,100,459,373] Start request for Demux(DynamicIP){C=/192.168.56.101:44964}
+INFO: [27,085,104,667,068] Start getting content demux: Demux(DynamicIP){C=/192.168.56.101:44964} URL:http://192.168.56.104/
+INFO: [27,089,336,295,626] Get content demux:Demux(DynamicIP){C=/192.168.56.101:44962} URL:http://192.168.56.104/ LastModified:1493626592000
+INFO: [27,089,341,605,938] Wrote response to /192.168.56.101:44962
+INFO: [27,089,342,697,505] Finished getting content demux:Demux(DynamicIP){C=/192.168.56.101:44962} URL:http://192.168.56.104/
+INFO: [27,090,119,435,470] Get content demux:Demux(DynamicIP){C=/192.168.56.101:44964} URL:http://192.168.56.104/ LastModified:1493626593000
+INFO: [27,090,125,450,055] Wrote response to /192.168.56.101:44964
+INFO: [27,090,126,187,539] Finished getting content demux:Demux(DynamicIP){C=/192.168.56.101:44964} URL:http://192.168.56.104/
+
+Scenario: IP-IP, 2 clients request for a same file name from different servers (one server does not exist)
+What we see: two requests cannot (and should not) be aggregated
+
+INFO: [27,384,273,148,022] Receive request from /192.168.56.101:44970
+INFO: [27,384,274,164,353] Got canonical request: CREQ_S{D=INTR_IP,N=192.168.56.104/key,T=null}, need raise: true
+INFO: [27,384,275,896,425] put request CREQ_S{D=INTR_IP,N=192.168.56.104/key,T=null} from DomainAdapter:{N=IP:80} to queue
+INFO: [27,384,277,930,217] got request CREQ_S{D=INTR_IP,N=192.168.56.104/key,T=null} from DomainAdapter:{N=IP:80} in queue
+INFO: [27,384,278,797,718] forward CREQ_S{D=INTR_IP,N=192.168.56.104/key,T=null} from DomainAdapter:{N=IP:80} to DomainAdapter:{N=IP:10000}
+INFO: [27,384,279,373,756] Got domain request for CREQ_S{D=INTR_IP,N=192.168.56.104/key,T=null}
+INFO: [27,384,280,187,875] Start request for Demux(Static):{D=INTR_IP,N=192.168.56.104/key,T=null}
+INFO: [27,384,284,811,947] Start getting content demux: Demux(Static):{D=INTR_IP,N=192.168.56.104/key,T=null} URL:http://192.168.56.104/key
+INFO: [27,384,960,211,441] Receive request from /192.168.56.101:44972
+INFO: [27,384,961,982,623] Got canonical request: CREQ_S{D=INTR_IP,N=192.168.56.101/key,T=null}, need raise: true
+INFO: [27,384,964,431,428] put request CREQ_S{D=INTR_IP,N=192.168.56.101/key,T=null} from DomainAdapter:{N=IP:80} to queue
+INFO: [27,384,965,995,819] got request CREQ_S{D=INTR_IP,N=192.168.56.101/key,T=null} from DomainAdapter:{N=IP:80} in queue
+INFO: [27,384,966,490,755] forward CREQ_S{D=INTR_IP,N=192.168.56.101/key,T=null} from DomainAdapter:{N=IP:80} to DomainAdapter:{N=IP:10000}
+INFO: [27,384,967,106,467] Got domain request for CREQ_S{D=INTR_IP,N=192.168.56.101/key,T=null}
+INFO: [27,384,970,391,549] Start request for Demux(Static):{D=INTR_IP,N=192.168.56.101/key,T=null}
+INFO: [27,384,971,220,467] Start getting content demux: Demux(Static):{D=INTR_IP,N=192.168.56.101/key,T=null} URL:http://192.168.56.101/key
+SEVERE: [27,384,972,856,170] Error in retrieving content in IP demux:Demux(Static):{D=INTR_IP,N=192.168.56.101/key,T=null} URL:http://192.168.56.101/key
+java.net.ConnectException: Connection refused (Connection refused)
+        at java.net.PlainSocketImpl.socketConnect(Native Method)
+        at java.net.AbstractPlainSocketImpl.doConnect(AbstractPlainSocketImpl.java:350)
+        at java.net.AbstractPlainSocketImpl.connectToAddress(AbstractPlainSocketImpl.java:206)
+        at java.net.AbstractPlainSocketImpl.connect(AbstractPlainSocketImpl.java:188)
+        at java.net.SocksSocketImpl.connect(SocksSocketImpl.java:392)
+        at java.net.Socket.connect(Socket.java:589)
+        at java.net.Socket.connect(Socket.java:538)
+        at sun.net.NetworkClient.doConnect(NetworkClient.java:180)
+        at sun.net.www.http.HttpClient.openServer(HttpClient.java:463)
+        at sun.net.www.http.HttpClient.openServer(HttpClient.java:558)
+        at sun.net.www.http.HttpClient.<init>(HttpClient.java:242)
+        at sun.net.www.http.HttpClient.New(HttpClient.java:339)
+        at sun.net.www.http.HttpClient.New(HttpClient.java:357)
+        at sun.net.www.protocol.http.HttpURLConnection.getNewHttpClient(HttpURLConnection.java:1202)
+        at sun.net.www.protocol.http.HttpURLConnection.plainConnect0(HttpURLConnection.java:1138)
+        at sun.net.www.protocol.http.HttpURLConnection.plainConnect(HttpURLConnection.java:1032)
+        at sun.net.www.protocol.http.HttpURLConnection.connect(HttpURLConnection.java:966)
+        at sun.net.www.protocol.http.HttpURLConnection.getInputStream0(HttpURLConnection.java:1546)
+        at sun.net.www.protocol.http.HttpURLConnection.getInputStream(HttpURLConnection.java:1474)
+        at java.net.HttpURLConnection.getResponseCode(HttpURLConnection.java:480)
+        at edu.rutgers.winlab.icninteroperability.ip.DomainAdapterIP$HttpRequestHandler.forwardResponse(DomainAdapterIP.java:416)
+        at edu.rutgers.winlab.icninteroperability.ip.DomainAdapterIP$HttpRequestHandler.requestStaticData(DomainAdapterIP.java:500)
+        at edu.rutgers.winlab.icninteroperability.ip.DomainAdapterIP$HttpRequestHandler.run(DomainAdapterIP.java:379)
+        at java.lang.Thread.run(Thread.java:748)
+INFO: [27,384,985,952,467] Wrote Not Modified to /192.168.56.101:44972
+INFO: [27,389,294,933,947] Get content demux:Demux(Static):{D=INTR_IP,N=192.168.56.104/key,T=null} URL:http://192.168.56.104/key LastModified:1493423820000
+INFO: [27,389,299,303,883] Wrote response to /192.168.56.101:44970
+INFO: [27,389,300,964,190] Finished getting content demux:Demux(Static):{D=INTR_IP,N=192.168.56.104/key,T=null} URL:http://192.168.56.104/key

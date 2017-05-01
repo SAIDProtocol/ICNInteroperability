@@ -27,16 +27,16 @@ public class Main {
 
     }
 
-    public static void runProvider(int port, String folder) throws IOException {
-        System.out.printf("Starting IP Provider on %d, folder %s%n", port, folder);
-        ProviderIP provider = new ProviderIP(80, folder);
+    public static void runProvider(int port, String folder, int wait) throws IOException {
+        System.out.printf("Starting IP Provider on %d, folder %s, static file wait time %d%n", port, folder, wait);
+        ProviderIP provider = new ProviderIP(80, folder, wait);
         provider.start();
     }
 
     public static void usage() {
         System.out.println("usage: java -jar XXX.jar %type% [%params%]");
-        System.out.println("  type: ipip                  run IP(80)-IP(10000) GW");
-        System.out.println("  type: ipp %port% %folder%   run IP provider with port and folder");
+        System.out.println("  type: ipip                         run IP(80)-IP(10000) GW");
+        System.out.println("  type: ipp %port% %folder% %wait%   run IP provider with port,  folder and static file wait time");
     }
 
     public static void main(String[] args) throws IOException, ConfigurationException, MalformedContentNameStringException, JMFException {
@@ -49,11 +49,11 @@ public class Main {
                 runGatewayTwoIPs();
                 break;
             case "ipp":
-                if (args.length < 3) {
+                if (args.length < 4) {
                     usage();
                     return;
                 }
-                runProvider(Integer.parseInt(args[1]), args[2]);
+                runProvider(Integer.parseInt(args[1]), args[2], Integer.parseInt(args[3]));
                 break;
             default:
                 usage();
