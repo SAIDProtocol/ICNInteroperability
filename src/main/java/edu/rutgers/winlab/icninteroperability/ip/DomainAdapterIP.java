@@ -171,7 +171,23 @@ public class DomainAdapterIP extends DomainAdapter {
     }
 
     private void handleDynamicRequest(HttpExchange exchange, String domain, String name) {
-        //TODO: finish this function
+
+        // TODO: read string from request body
+        byte[] body = null;
+        CanonicalRequestDynamic req = new CanonicalRequestDynamic(domain, new DemultiplexingEntityIPDynamic(exchange.getRemoteAddress()), name, body, this);
+
+        ResponseHandler handler;
+        DemultiplexingEntity demux = req.getDemux();
+        synchronized (pendingRequests) {
+            handler = pendingRequests.get(demux);
+            if (handler == null) {
+                pendingRequests.put(demux, new ResponseHandler());
+                LOG.log(Level.INFO, String.format("[%,d] Got canonical request: %s, need raise: %b", System.nanoTime(), req, true));
+                raiseRequest(req);
+            } else {
+// TODO: should not reach here, dynamic request should have no pending interests
+            }
+        }
     }
 
     @Override
@@ -327,7 +343,7 @@ public class DomainAdapterIP extends DomainAdapter {
             if (firstRequest instanceof CanonicalRequestStatic) {
                 requestStaticData((CanonicalRequestStatic) firstRequest);
             } else if (firstRequest instanceof CanonicalRequestDynamic) {
-                requestDynamicData();
+                requestDynamicData((CanonicalRequestDynamic) firstRequest);
             } else {
                 LOG.log(Level.INFO, String.format("[%,d] Unknown request type %s, return failure", System.nanoTime(), firstRequest));
                 handlers.forEach(h -> h.handleDataFailed(firstRequest.getDemux()));
@@ -336,7 +352,7 @@ public class DomainAdapterIP extends DomainAdapter {
             contentFinishedHandler.accept(firstRequest.getDemux());
         }
 
-        private void requestDynamicData() {
+        private void requestDynamicData(CanonicalRequestDynamic request) {
 //TODO:
         }
 

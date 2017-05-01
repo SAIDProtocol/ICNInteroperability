@@ -18,9 +18,9 @@ mvn clean install
   - [x] Provider side (right) static
   - [ ] Consumer side (left) dynamic
   - [ ] Provider side (right) dynamic
-- [ ] IP Content provider
+- [x] IP Content provider
   - [x] static (similar to file server)
-  - [ ] dynamic (similar to ORS)
+  - [x] dynamic (similar to ORS)
 - [ ] NDN Adapter
   - [ ] Consumer side (left) static
   - [ ] Provider side (right) static

@@ -8,21 +8,30 @@ package edu.rutgers.winlab.provider;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import static edu.rutgers.winlab.common.HTTPUtility.HTTP_DATE_FORMAT;
+import static edu.rutgers.winlab.common.HTTPUtility.HTTP_HEADER_CONTENT_LENGTH;
 import static edu.rutgers.winlab.common.HTTPUtility.HTTP_HEADER_IF_MODIFIED_SINCE;
 import static edu.rutgers.winlab.common.HTTPUtility.HTTP_METHOD_DYNAMIC;
 import static edu.rutgers.winlab.common.HTTPUtility.HTTP_METHOD_STATIC;
+import static edu.rutgers.winlab.common.HTTPUtility.HTTP_RESPONSE_CONTENT_LENGTH_SHOULD_NOT_BE_NULL;
+import static edu.rutgers.winlab.common.HTTPUtility.HTTP_RESPONSE_ERROR_IN_READING_REQUEST_BODY;
 import static edu.rutgers.winlab.common.HTTPUtility.HTTP_RESPONSE_FILE_NOT_FOUND_FORMAT;
 import static edu.rutgers.winlab.common.HTTPUtility.HTTP_RESPONSE_UNSUPPORTED_ACTION_FORMAT;
+import static edu.rutgers.winlab.common.HTTPUtility.parseQuery;
 import static edu.rutgers.winlab.common.HTTPUtility.writeBody;
 import static edu.rutgers.winlab.common.HTTPUtility.writeNotModified;
 import static edu.rutgers.winlab.common.HTTPUtility.writeQuickResponse;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import static java.net.HttpURLConnection.HTTP_BAD_REQUEST;
 import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
 import static java.net.HttpURLConnection.HTTP_NOT_IMPLEMENTED;
 import java.net.InetSocketAddress;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.Executors;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -32,6 +41,7 @@ import java.util.logging.Logger;
  */
 public class ProviderIP {
 
+    public static final String SLEEP_PARAM_NAME = "sleep";
     private static final Logger LOG = Logger.getLogger(ProviderIP.class.getName());
 
     private final String folder;
@@ -41,6 +51,7 @@ public class ProviderIP {
         this.folder = folder;
         server = HttpServer.create(new InetSocketAddress(port), 0);
         server.createContext("/", this::handleHttpExchange);
+        server.setExecutor(Executors.newCachedThreadPool());
     }
 
     private void handleHttpExchange(HttpExchange exchange) {
@@ -86,6 +97,7 @@ public class ProviderIP {
             }
             return;
         }
+
         if (exclude != null && exclude >= f.lastModified()) {
             try {
                 LOG.log(Level.INFO, String.format("[%,d] File not modified write 304 URI:%s remote:%s f:%s exclude:%d", System.nanoTime(), uri, exchange.getRemoteAddress(), f, exclude));
@@ -94,20 +106,77 @@ public class ProviderIP {
                 LOG.log(Level.SEVERE, String.format("[%,d] Error in writing 304 to client %s", System.nanoTime(), exchange.getRemoteAddress()), ex);
             }
         } else {
-
             try (FileInputStream fis = new FileInputStream(f)) {
                 LOG.log(Level.INFO, String.format("[%,d] Write file to client URI:%s remote:%s f:%s last-modified:%d, len:%d", System.nanoTime(), uri, exchange.getRemoteAddress(), f, f.lastModified(), f.length()));
                 writeBody(exchange, fis, f.length(), new Date(f.lastModified()));
             } catch (IOException ex) {
                 LOG.log(Level.SEVERE, String.format("[%,d] Error in writing file to client %s", System.nanoTime(), exchange.getRemoteAddress()), ex);
             }
-
         }
-
     }
 
     private void handleDynamicContent(HttpExchange exchange) {
+        String uri = exchange.getRequestURI().toString();
+        String strRequestBodyLen = exchange.getRequestHeaders().getFirst(HTTP_HEADER_CONTENT_LENGTH);
+        int requestBodyLen = -1;
+        try {
+            requestBodyLen = Integer.parseInt(strRequestBodyLen);
+        } catch (Exception e) {
+            // ignore if missing, cannot understand
+        }
+        if (requestBodyLen < 0) {
+            try {
+                LOG.log(Level.INFO, String.format("[%,d] Content-Length field missing in header, respond not supported", System.nanoTime()));
+                writeQuickResponse(exchange, HTTP_NOT_IMPLEMENTED, HTTP_RESPONSE_CONTENT_LENGTH_SHOULD_NOT_BE_NULL);
+            } catch (IOException ex) {
+                LOG.log(Level.SEVERE, String.format("[%,d] Error in writing 501 to client %s", System.nanoTime(), exchange.getRemoteAddress()), ex);
+            }
+            return;
+        }
+        LOG.log(Level.INFO, String.format("[%,d] Received dynamic request URI:%s remote:%s reqBodyLen:%d", System.nanoTime(), uri, exchange.getRemoteAddress(), requestBodyLen));
+        byte[] buf = new byte[requestBodyLen];
+        int start = 0;
+        try {
+            while (start < requestBodyLen) {
+                int read = exchange.getRequestBody().read(buf, start, requestBodyLen - start);
+                start += read;
+            }
+        } catch (Exception ex) {
+            try {
+                LOG.log(Level.SEVERE, String.format("[%,d] Error in reading client body", System.nanoTime()), ex);
+                writeQuickResponse(exchange, HTTP_BAD_REQUEST, HTTP_RESPONSE_ERROR_IN_READING_REQUEST_BODY, ex.toString());
+            } catch (Exception ex2) {
+                LOG.log(Level.SEVERE, String.format("[%,d] Error in writing 400 to client %s", System.nanoTime(), exchange.getRemoteAddress()), ex2);
+            }
+            return;
+        }
+        String queryString = new String(buf);
+        LOG.log(Level.INFO, String.format("[%,d] request body: %s", System.nanoTime(), queryString));
+        Map<String, List<String>> parameters = new HashMap<>();
+        parseQuery(queryString, parameters);
 
+        int sleepLen = 0;
+        try {
+            sleepLen = Integer.parseInt(parameters.get(SLEEP_PARAM_NAME).get(0));
+        } catch (Exception e) {
+        }
+        if (sleepLen > 0) {
+            try {
+                Thread.sleep(sleepLen);
+            } catch (InterruptedException ex) {
+                Logger.getLogger(ProviderIP.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+
+        String echo = "This is a simple echo application%nRequest string is: %s%nBye!%n";
+        byte[] result = String.format(echo, queryString).getBytes();
+        try {
+            Date lastModified = new Date();
+            LOG.log(Level.INFO, String.format("[%,d] Write file to client URI:%s remote:%s last-modified:%d, len:%d", System.nanoTime(), uri, exchange.getRemoteAddress(), lastModified.getTime(), result.length));
+            writeBody(exchange, result, result.length, lastModified);
+        } catch (Exception ex) {
+            LOG.log(Level.SEVERE, String.format("[%,d] Error in writing response to client %s", System.nanoTime(), exchange.getRemoteAddress()), ex);
+        }
     }
 
     public void start() {

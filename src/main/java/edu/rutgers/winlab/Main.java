@@ -19,7 +19,8 @@ import org.ccnx.ccn.protocol.MalformedContentNameStringException;
  */
 public class Main {
 
-    public static void runGateway() throws IOException {
+    public static void runGatewayTwoIPs() throws IOException {
+        System.out.println("Starting IP(80)-IP(10000) GW");
         DomainAdapterIP d1 = new DomainAdapterIP("IP:80", 80), d2 = new DomainAdapterIP("IP:10000", 10000);
         GatewayTwoDomains g2d = new GatewayTwoDomains(d1, d2);
         g2d.start();
@@ -27,14 +28,15 @@ public class Main {
     }
 
     public static void runProvider(int port, String folder) throws IOException {
+        System.out.printf("Starting IP Provider on %d, folder %s%n", port, folder);
         ProviderIP provider = new ProviderIP(80, folder);
         provider.start();
     }
 
     public static void usage() {
         System.out.println("usage: java -jar XXX.jar %type% [%params%]");
-        System.out.println("  type: g                   run gateway");
-        System.out.println("  type: p %port% %folder%   run provider with port and folder");
+        System.out.println("  type: ipip                  run IP(80)-IP(10000) GW");
+        System.out.println("  type: ipp %port% %folder%   run IP provider with port and folder");
     }
 
     public static void main(String[] args) throws IOException, ConfigurationException, MalformedContentNameStringException, JMFException {
@@ -42,11 +44,11 @@ public class Main {
             usage();
             return;
         }
-        switch(args[0]) {
-            case "g":
-                runGateway();
+        switch (args[0]) {
+            case "ipip":
+                runGatewayTwoIPs();
                 break;
-            case "p":
+            case "ipp":
                 if (args.length < 3) {
                     usage();
                     return;

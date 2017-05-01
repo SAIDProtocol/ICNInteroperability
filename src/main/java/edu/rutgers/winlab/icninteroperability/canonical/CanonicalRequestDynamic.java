@@ -14,20 +14,20 @@ import edu.rutgers.winlab.icninteroperability.DemultiplexingEntity;
  */
 public class CanonicalRequestDynamic extends CanonicalRequest {
 
-    private final String input;
+    private final byte[] input;
 
-    public CanonicalRequestDynamic(String destDomain, DemultiplexingEntity demux, String targetName, String input, DataHandler handler) {
+    public CanonicalRequestDynamic(String destDomain, DemultiplexingEntity demux, String targetName, byte[] input, DataHandler handler) {
         super(destDomain, demux, targetName, handler);
         this.input = input;
     }
 
-    public String getInput() {
+    public byte[] getInput() {
         return input;
     }
 
     @Override
     public String toString() {
-        return String.format("CREQ_D{D=%s,N=%s,I=%s}", getDestDomain(), getTargetName(), input);
+        return String.format("CREQ_D{D=%s,N=%s,I.len=%d}", getDestDomain(), getTargetName(), input.length);
     }
 
 }
