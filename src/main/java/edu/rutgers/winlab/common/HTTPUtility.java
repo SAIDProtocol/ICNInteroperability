@@ -29,6 +29,7 @@ public class HTTPUtility {
     public static final String HTTP_HEADER_IF_MODIFIED_SINCE = "If-Modified-Since";
     public static final String OUTGOING_GATEWAY_DOMAIN_SUFFIX = "";
     public static final SimpleDateFormat HTTP_DATE_FORMAT = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz");
+    public static final String HTTP_RESPONSE_HOST_SHOULD_NOT_BE_NULL = "<h1>501 Not Implemented</h1>Should have &quot;host&quot; field in query.%n";
     public static final String HTTP_RESPONSE_UNSUPPORTED_ACTION_FORMAT = "<h1>501 Not Implemented</h1>Unsupported HTTP method: %s%n";
     public static final String HTTP_RESPONSE_FAIL_INPROCESS = "<h1>500 Internal Server Error</h1>Error in processing: %s<pre>%s</pre>%n";
     public static final String HTTP_RESPONSE_FILE_NOT_FOUND_FORMAT = "<h1>404 Not Found</h1>Cannot find file: %s%n";

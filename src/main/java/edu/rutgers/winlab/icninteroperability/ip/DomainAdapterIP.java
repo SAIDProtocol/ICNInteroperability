@@ -14,6 +14,7 @@ import static edu.rutgers.winlab.common.HTTPUtility.HTTP_HEADER_IF_MODIFIED_SINC
 import static edu.rutgers.winlab.common.HTTPUtility.HTTP_HEADER_LAST_MODIFIED;
 import static edu.rutgers.winlab.common.HTTPUtility.HTTP_METHOD_DYNAMIC;
 import static edu.rutgers.winlab.common.HTTPUtility.HTTP_METHOD_STATIC;
+import static edu.rutgers.winlab.common.HTTPUtility.HTTP_RESPONSE_HOST_SHOULD_NOT_BE_NULL;
 import static edu.rutgers.winlab.common.HTTPUtility.HTTP_RESPONSE_UNSUPPORTED_ACTION_FORMAT;
 import static edu.rutgers.winlab.common.HTTPUtility.OUTGOING_GATEWAY_DOMAIN_SUFFIX;
 import static edu.rutgers.winlab.common.HTTPUtility.writeQuickResponse;
@@ -88,6 +89,16 @@ public class DomainAdapterIP extends DomainAdapter {
         }
 
         String host = exchange.getRequestHeaders().getFirst(HTTP_HEADER_HOST);
+        if (host == null) {
+            LOG.log(Level.INFO, String.format("[%,d] Send response to %s, host==null not supportd", System.nanoTime(), exchange.getRemoteAddress()));
+            try {
+                writeQuickResponse(exchange, HTTP_NOT_IMPLEMENTED, HTTP_RESPONSE_HOST_SHOULD_NOT_BE_NULL);
+            } catch (Exception ex) {
+                LOG.log(Level.SEVERE, String.format("[%,d] Error in writing response to %s", System.nanoTime(), exchange.getRemoteAddress()), ex);
+            }
+            return;
+        }
+
         String domain = host.toUpperCase();
         if (domain == null || !domain.startsWith(CROSS_DOMAIN_HOST_PREFIX)) {
             // means it is an IP request
@@ -123,7 +134,7 @@ public class DomainAdapterIP extends DomainAdapter {
                 LOG.log(Level.INFO, String.format("[%,d] Send response to %s, action (%s) not supportd", System.nanoTime(), exchange.getRemoteAddress(), requestMethod));
                 try {
                     writeQuickResponse(exchange, HTTP_NOT_IMPLEMENTED, HTTP_RESPONSE_UNSUPPORTED_ACTION_FORMAT, requestMethod);
-                } catch (IOException ex) {
+                } catch (Exception ex) {
                     LOG.log(Level.SEVERE, String.format("[%,d] Error in writing response to %s", System.nanoTime(), exchange.getRemoteAddress()), ex);
                 }
             }
@@ -178,7 +189,7 @@ public class DomainAdapterIP extends DomainAdapter {
         if (handler != null) {
             try {
                 handler.addData(data, size, time, finished);
-            } catch (IOException ex) {
+            } catch (Exception ex) {
                 LOG.log(Level.SEVERE, String.format("[%,d] Error in writing data to %s", System.nanoTime(), demux), ex);
             }
         }
@@ -213,7 +224,7 @@ public class DomainAdapterIP extends DomainAdapter {
                 try {
                     writeNotModified(pendingClient);
                     LOG.log(Level.INFO, String.format("[%,d] Wrote Not Modified to %s", System.nanoTime(), pendingClient.getRemoteAddress()));
-                } catch (IOException ex) {
+                } catch (Exception ex) {
                     LOG.log(Level.SEVERE, String.format("[%,d] Error in writing response to %s", System.nanoTime(), pendingClient.getRemoteAddress()), ex);
                 }
             });
@@ -245,7 +256,7 @@ public class DomainAdapterIP extends DomainAdapter {
                 try {
                     writeBody(pendingClient, buf, responseSize, time == null ? null : new Date(time));
                     LOG.log(Level.INFO, String.format("[%,d] Wrote response to %s", System.nanoTime(), pendingClient.getRemoteAddress()));
-                } catch (IOException ex) {
+                } catch (Exception ex) {
                     LOG.log(Level.SEVERE, String.format("[%,d] Error in writing response to %s", System.nanoTime(), pendingClient.getRemoteAddress()), ex);
                 }
             });
@@ -383,7 +394,7 @@ public class DomainAdapterIP extends DomainAdapter {
                     LOG.log(Level.INFO, String.format("[%,d] Finished getting content demux:%s URL:%s", System.nanoTime(), demux, urlStr));
                 }
 
-            } catch (IOException ex) {
+            } catch (Exception ex) {
                 LOG.log(Level.SEVERE, String.format("[%,d] Error in retrieving content in IP demux:%s URL:%s", System.nanoTime(), demux, urlStr), ex);
                 handlers.forEach(handler -> handler.handleDataFailed(demux));
             } finally {

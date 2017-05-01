@@ -12,6 +12,7 @@ import static edu.rutgers.winlab.common.HTTPUtility.HTTP_HEADER_IF_MODIFIED_SINC
 import static edu.rutgers.winlab.common.HTTPUtility.HTTP_METHOD_DYNAMIC;
 import static edu.rutgers.winlab.common.HTTPUtility.HTTP_METHOD_STATIC;
 import static edu.rutgers.winlab.common.HTTPUtility.HTTP_RESPONSE_FILE_NOT_FOUND_FORMAT;
+import static edu.rutgers.winlab.common.HTTPUtility.HTTP_RESPONSE_UNSUPPORTED_ACTION_FORMAT;
 import static edu.rutgers.winlab.common.HTTPUtility.writeBody;
 import static edu.rutgers.winlab.common.HTTPUtility.writeNotModified;
 import static edu.rutgers.winlab.common.HTTPUtility.writeQuickResponse;
@@ -19,6 +20,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
+import static java.net.HttpURLConnection.HTTP_NOT_IMPLEMENTED;
 import java.net.InetSocketAddress;
 import java.util.Date;
 import java.util.logging.Level;
@@ -42,7 +44,8 @@ public class ProviderIP {
     }
 
     private void handleHttpExchange(HttpExchange exchange) {
-        switch (exchange.getRequestMethod()) {
+        String requestMethod = exchange.getRequestMethod();
+        switch (requestMethod) {
             case HTTP_METHOD_STATIC: {
                 handleStaticContent(exchange);
                 break;
@@ -52,7 +55,12 @@ public class ProviderIP {
                 break;
             }
             default: {
-
+                LOG.log(Level.INFO, String.format("[%,d] Send response to %s, action (%s) not supportd", System.nanoTime(), exchange.getRemoteAddress(), requestMethod));
+                try {
+                    writeQuickResponse(exchange, HTTP_NOT_IMPLEMENTED, HTTP_RESPONSE_UNSUPPORTED_ACTION_FORMAT, requestMethod);
+                } catch (IOException ex) {
+                    LOG.log(Level.SEVERE, String.format("[%,d] Error in writing response to %s", System.nanoTime(), exchange.getRemoteAddress()), ex);
+                }
             }
         }
     }
@@ -93,7 +101,7 @@ public class ProviderIP {
             } catch (IOException ex) {
                 LOG.log(Level.SEVERE, String.format("[%,d] Error in writing file to client %s", System.nanoTime(), exchange.getRemoteAddress()), ex);
             }
-            
+
         }
 
     }
