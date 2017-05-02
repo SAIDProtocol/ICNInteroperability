@@ -8,7 +8,6 @@ package edu.rutgers.winlab;
 import edu.rutgers.winlab.icninteroperability.GatewayTwoDomains;
 import edu.rutgers.winlab.icninteroperability.ip.DomainAdapterIP;
 import edu.rutgers.winlab.icninteroperability.ndn.DomainAdapterNDN;
-import edu.rutgers.winlab.jmfapi.JMFException;
 import edu.rutgers.winlab.provider.CCNFileProxy;
 import edu.rutgers.winlab.provider.ProviderIP;
 import java.io.IOException;
@@ -55,7 +54,7 @@ public class Main {
         System.out.println("  type: ndnfp %folder%               run CCNFileProxy with folder");
     }
 
-    public static void main(String[] args) throws IOException, ConfigurationException, MalformedContentNameStringException, JMFException {
+    public static void main(String[] args) throws IOException, ConfigurationException, MalformedContentNameStringException {
         if (args.length == 0) {
             usage();
             return;

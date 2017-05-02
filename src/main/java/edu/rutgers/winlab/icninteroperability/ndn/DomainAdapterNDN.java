@@ -25,8 +25,11 @@ import org.ccnx.ccn.config.ConfigurationException;
 import org.ccnx.ccn.config.SystemConfiguration;
 import org.ccnx.ccn.impl.support.Log;
 import org.ccnx.ccn.io.CCNInputStream;
+import org.ccnx.ccn.profiles.CommandMarker;
+import org.ccnx.ccn.profiles.SegmentationProfile;
 import org.ccnx.ccn.profiles.VersionMissingException;
 import org.ccnx.ccn.profiles.VersioningProfile;
+import org.ccnx.ccn.profiles.metadata.MetadataProfile;
 import org.ccnx.ccn.protocol.ContentName;
 import org.ccnx.ccn.protocol.ContentObject;
 import org.ccnx.ccn.protocol.Interest;
@@ -72,15 +75,22 @@ public class DomainAdapterNDN extends DomainAdapter {
 //========================= Begin region: left hand side, the consumer domain =========================
     private boolean handleInterest(Interest interest) {
         LOG.log(Level.INFO, String.format("[%,d] Got interest %s", System.nanoTime(), interest));
-//        CommandMarker.COMMAND_PREFIX
-//RepositoryStore rs = new 
 
-//        CCNVersionedInputStream        
+        if ((SegmentationProfile.isSegment(interest.name()) && !SegmentationProfile.isFirstSegment(interest.name()))
+                || interest.name().contains(CommandMarker.COMMAND_MARKER_BASIC_ENUMERATION.getBytes())
+                || MetadataProfile.isHeader(interest.name())) {
+            LOG.log(Level.INFO, String.format("[%,d] Got interest %s, but we do not handle them.", System.nanoTime(), interest));
+            return false;
+        }
+
+
+
         return false;
     }
 
     @Override
     public void handleDataRetrieved(DemultiplexingEntity demux, byte[] data, int size, Long time, boolean finished) {
+
     }
 
     @Override
@@ -187,6 +197,7 @@ public class DomainAdapterNDN extends DomainAdapter {
         }
 
         private void requestDynamicData(DemultiplexingEntity demux, byte[] input, ContentName base) {
+            //TODO: finish this function
 
         }
 
