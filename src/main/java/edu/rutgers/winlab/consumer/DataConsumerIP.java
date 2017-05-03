@@ -5,28 +5,14 @@
  */
 package edu.rutgers.winlab.consumer;
 
-import static edu.rutgers.winlab.common.HTTPUtility.CROSS_DOMAIN_HOST_IP;
-import static edu.rutgers.winlab.common.HTTPUtility.HTTP_DATE_FORMAT;
-import static edu.rutgers.winlab.common.HTTPUtility.HTTP_HEADER_HOST;
-import static edu.rutgers.winlab.common.HTTPUtility.HTTP_HEADER_IF_MODIFIED_SINCE;
-import static edu.rutgers.winlab.common.HTTPUtility.HTTP_HEADER_LAST_MODIFIED;
-import static edu.rutgers.winlab.common.HTTPUtility.HTTP_METHOD_DYNAMIC;
-import static edu.rutgers.winlab.common.HTTPUtility.HTTP_METHOD_STATIC;
-import static edu.rutgers.winlab.common.HTTPUtility.OUTGOING_GATEWAY_DOMAIN_SUFFIX;
-import edu.rutgers.winlab.icninteroperability.DataHandler;
-import edu.rutgers.winlab.icninteroperability.DemultiplexingEntity;
+import static edu.rutgers.winlab.common.HTTPUtility.*;
+import static java.net.HttpURLConnection.*;
+import edu.rutgers.winlab.icninteroperability.*;
 import edu.rutgers.winlab.icninteroperability.canonical.*;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.io.UnsupportedEncodingException;
-import java.net.HttpURLConnection;
-import static java.net.HttpURLConnection.HTTP_OK;
-import java.net.URL;
-import java.net.URLEncoder;
-import java.util.Date;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import java.io.*;
+import java.net.*;
+import java.util.*;
+import java.util.logging.*;
 
 /**
  *
@@ -126,12 +112,11 @@ public class DataConsumerIP implements DataConsumer {
             connection.setRequestMethod(HTTP_METHOD_DYNAMIC);
             connection.setRequestProperty(HTTP_HEADER_HOST, host);
             connection.setUseCaches(false);
+            connection.setRequestProperty(HTTP_HEADER_CONTENT_LENGTH, Integer.toString(input.length));
+            connection.setDoOutput(true);
 
-            if (input.length > 0) {
-                connection.setDoOutput(true);
-                try (OutputStream reqOutput = connection.getOutputStream()) {
-                    reqOutput.write(input);
-                }
+            try (OutputStream reqOutput = connection.getOutputStream()) {
+                reqOutput.write(input);
             }
             return forwardResponse(request.getDemux(), urlStr, connection, request.getDataHandler());
 

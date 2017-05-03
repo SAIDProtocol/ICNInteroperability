@@ -99,11 +99,14 @@ public class ProviderNDNDynamic {
     }
 
     public static void main(String[] args) throws ConfigurationException, IOException, MalformedContentNameStringException {
+        suppressNDNLog();
         if (args.length < 1) {
             System.out.printf("Usage: java %s <prefix>%n", ProviderNDNDynamic.class.getName());
             return;
         }
-        ProviderNDNDynamic providerNDNDynamic = new ProviderNDNDynamic(ContentName.fromNative(args[0]));
+        ContentName prefix = ContentName.fromNative(args[0]);
+        ProviderNDNDynamic providerNDNDynamic = new ProviderNDNDynamic(prefix);
+        LOG.log(Level.INFO, String.format("Starting Provider NDN with prefix %s", prefix));
         providerNDNDynamic.start();
     }
 

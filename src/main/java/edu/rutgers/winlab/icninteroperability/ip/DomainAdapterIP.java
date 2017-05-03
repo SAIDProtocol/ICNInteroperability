@@ -403,12 +403,11 @@ public class DomainAdapterIP extends DomainAdapter {
                 connection.setRequestMethod(HTTP_METHOD_DYNAMIC);
                 connection.setRequestProperty(HTTP_HEADER_HOST, host);
                 connection.setUseCaches(false);
+                connection.setRequestProperty(HTTP_HEADER_CONTENT_LENGTH, Integer.toString(input.length));
+                connection.setDoOutput(true);
 
-                if (input.length > 0) {
-                    connection.setDoOutput(true);
-                    try (OutputStream output = connection.getOutputStream()) {
-                        output.write(input);
-                    }
+                try (OutputStream output = connection.getOutputStream()) {
+                    output.write(input);
                 }
 
                 forwardResponse(demux, urlStr, connection);
