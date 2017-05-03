@@ -5,6 +5,7 @@
  */
 package edu.rutgers.winlab;
 
+import static edu.rutgers.winlab.common.NDNUtility.suppressNDNLog;
 import edu.rutgers.winlab.icninteroperability.GatewayTwoDomains;
 import edu.rutgers.winlab.icninteroperability.ip.DomainAdapterIP;
 import edu.rutgers.winlab.icninteroperability.ndn.DomainAdapterNDN;
@@ -28,6 +29,7 @@ public class Main {
     }
 
     public static void runGatewayIPNDN() throws IOException {
+        suppressNDNLog();
         System.out.println("Starting IP(80)-NDN GW");
         DomainAdapterIP d1 = new DomainAdapterIP("d1", 80);
         DomainAdapterNDN d2 = new DomainAdapterNDN("d2");
@@ -35,13 +37,14 @@ public class Main {
         g2d.start();
     }
 
-    public static void runProvider(int port, String folder, int wait) throws IOException {
+    public static void runProviderIP(int port, String folder, int wait) throws IOException {
         System.out.printf("Starting IP Provider on %d, folder %s, static file wait time %d%n", port, folder, wait);
         ProviderIP provider = new ProviderIP(80, folder, wait);
         provider.start();
     }
 
     public static void runCCNFileProxy(String folder) throws IOException, MalformedContentNameStringException, ConfigurationException {
+        suppressNDNLog();
         CCNFileProxy proxy = new CCNFileProxy(folder, CCNFileProxy.DEFAULT_URI);
         proxy.start();
     }
@@ -68,7 +71,7 @@ public class Main {
                     usage();
                     return;
                 }
-                runProvider(Integer.parseInt(args[1]), args[2], Integer.parseInt(args[3]));
+                runProviderIP(Integer.parseInt(args[1]), args[2], Integer.parseInt(args[3]));
                 break;
             case "ipndn":
                 runGatewayIPNDN();

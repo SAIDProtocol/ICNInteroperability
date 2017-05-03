@@ -21,14 +21,20 @@ mvn clean install
 - [x] IP Content provider
   - [x] static (similar to file server)
   - [x] dynamic (similar to ORS)
+- [x] IP Content consumer
+  - [x] static (similar to file retriever)
+  - [x] dynamic (similar to ORS client)
 - [ ] NDN Adapter
   - [ ] Consumer side (left) static
   - [x] Provider side (right) static
   - [ ] Consumer side (left) dynamic
   - [ ] Provider side (right) dynamic
-- [ ] NDN Content provider
+- [x] NDN Content provider
   - [x] static (use ccnr)
-  - [ ] dynamic (similar to ORS)
+  - [x] dynamic (similar to ORS)
+- [x] NDN Content consumer
+  - [x] static (similar to file retriever)
+  - [x] dynamic (similar to ORS client)
 - [ ] MF Adapter
   - [ ] Consumer side (left) static
   - [ ] Provider side (right) static
@@ -37,5 +43,8 @@ mvn clean install
 - [ ] MF Content provider
   - [ ] static (similar to file server)
   - [ ] dynamic (similar to ORS)
+- [ ] MF Content consumer
+  - [ ] static (similar to file retriever)
+  - [ ] dynamic (similar to ORS client)
 - [ ] Optimization: chunked transmission  
 

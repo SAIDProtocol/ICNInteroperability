@@ -5,36 +5,14 @@
  */
 package edu.rutgers.winlab.provider;
 
-import com.sun.net.httpserver.HttpExchange;
-import com.sun.net.httpserver.HttpServer;
-import static edu.rutgers.winlab.common.HTTPUtility.HTTP_DATE_FORMAT;
-import static edu.rutgers.winlab.common.HTTPUtility.HTTP_HEADER_IF_MODIFIED_SINCE;
-import static edu.rutgers.winlab.common.HTTPUtility.HTTP_METHOD_DYNAMIC;
-import static edu.rutgers.winlab.common.HTTPUtility.HTTP_METHOD_STATIC;
-import static edu.rutgers.winlab.common.HTTPUtility.HTTP_RESPONSE_CONTENT_LENGTH_SHOULD_NOT_BE_NULL;
-import static edu.rutgers.winlab.common.HTTPUtility.HTTP_RESPONSE_ERROR_IN_READING_REQUEST_BODY;
-import static edu.rutgers.winlab.common.HTTPUtility.HTTP_RESPONSE_FILE_NOT_FOUND_FORMAT;
-import static edu.rutgers.winlab.common.HTTPUtility.HTTP_RESPONSE_UNSUPPORTED_ACTION_FORMAT;
-import static edu.rutgers.winlab.common.HTTPUtility.parseQuery;
-import static edu.rutgers.winlab.common.HTTPUtility.readRequestBody;
-import static edu.rutgers.winlab.common.HTTPUtility.writeBody;
-import static edu.rutgers.winlab.common.HTTPUtility.writeNotModified;
-import static edu.rutgers.winlab.common.HTTPUtility.writeQuickResponse;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import static java.net.HttpURLConnection.HTTP_BAD_REQUEST;
-import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
-import static java.net.HttpURLConnection.HTTP_NOT_IMPLEMENTED;
-import java.net.InetSocketAddress;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.Executors;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import static edu.rutgers.winlab.common.HTTPUtility.writeBody;
+import com.sun.net.httpserver.*;
+import java.io.*;
+import java.net.*;
+import java.util.*;
+import java.util.concurrent.*;
+import java.util.logging.*;
+import static edu.rutgers.winlab.common.HTTPUtility.*;
+import static java.net.HttpURLConnection.*;
 
 /**
  *
@@ -89,6 +67,9 @@ public class ProviderIP {
             // if cannot parse date, see it as NULL
         }
         File f = new File(folder, uri);
+        long lastModified = f.lastModified();
+        // round the time to the next second
+        lastModified = lastModified / 1000 * 1000 + ((lastModified % 1000 == 0) ? 0 : 1000);
 
         LOG.log(Level.INFO, String.format("[%,d] Received static request URI:%s remote:%s f:%s exclude:%d", System.nanoTime(), uri, exchange.getRemoteAddress(), f, exclude));
         if (!f.isFile()) {
@@ -108,7 +89,7 @@ public class ProviderIP {
             }
         }
 
-        if (exclude != null && exclude >= f.lastModified()) {
+        if (exclude != null && exclude >= lastModified) {
             try {
                 LOG.log(Level.INFO, String.format("[%,d] File not modified write 304 URI:%s remote:%s f:%s exclude:%d", System.nanoTime(), uri, exchange.getRemoteAddress(), f, exclude));
                 writeNotModified(exchange);
@@ -117,8 +98,8 @@ public class ProviderIP {
             }
         } else {
             try (FileInputStream fis = new FileInputStream(f)) {
-                LOG.log(Level.INFO, String.format("[%,d] Write file to client URI:%s remote:%s f:%s last-modified:%d, len:%d", System.nanoTime(), uri, exchange.getRemoteAddress(), f, f.lastModified(), f.length()));
-                writeBody(exchange, fis, f.length(), new Date(f.lastModified()));
+                LOG.log(Level.INFO, String.format("[%,d] Write file to client URI:%s remote:%s f:%s last-modified:%d, len:%d", System.nanoTime(), uri, exchange.getRemoteAddress(), f, lastModified, f.length()));
+                writeBody(exchange, fis, f.length(), new Date(lastModified));
             } catch (IOException ex) {
                 LOG.log(Level.SEVERE, String.format("[%,d] Error in writing file to client %s", System.nanoTime(), exchange.getRemoteAddress()), ex);
             }

@@ -5,35 +5,18 @@
  */
 package edu.rutgers.winlab.icninteroperability.ndn;
 
-import edu.rutgers.winlab.icninteroperability.DataHandler;
-import edu.rutgers.winlab.icninteroperability.DemultiplexingEntity;
-import edu.rutgers.winlab.icninteroperability.DomainAdapter;
-import edu.rutgers.winlab.icninteroperability.canonical.CanonicalRequest;
-import edu.rutgers.winlab.icninteroperability.canonical.CanonicalRequestDynamic;
-import edu.rutgers.winlab.icninteroperability.canonical.CanonicalRequestStatic;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.function.Consumer;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import org.ccnx.ccn.CCNHandle;
-import org.ccnx.ccn.CCNInterestHandler;
-import org.ccnx.ccn.config.ConfigurationException;
-import org.ccnx.ccn.config.SystemConfiguration;
-import org.ccnx.ccn.impl.support.Log;
-import org.ccnx.ccn.io.CCNInputStream;
-import org.ccnx.ccn.profiles.CommandMarker;
-import org.ccnx.ccn.profiles.SegmentationProfile;
-import org.ccnx.ccn.profiles.VersionMissingException;
-import org.ccnx.ccn.profiles.VersioningProfile;
-import org.ccnx.ccn.profiles.metadata.MetadataProfile;
-import org.ccnx.ccn.protocol.ContentName;
-import org.ccnx.ccn.protocol.ContentObject;
-import org.ccnx.ccn.protocol.Interest;
-import org.ccnx.ccn.protocol.MalformedContentNameStringException;
+import edu.rutgers.winlab.icninteroperability.*;
+import edu.rutgers.winlab.icninteroperability.canonical.*;
+import java.io.*;
+import java.util.*;
+import java.util.function.*;
+import java.util.logging.*;
+import org.ccnx.ccn.*;
+import org.ccnx.ccn.config.*;
+import org.ccnx.ccn.io.*;
+import org.ccnx.ccn.profiles.*;
+import org.ccnx.ccn.protocol.*;
+import static edu.rutgers.winlab.common.NDNUtility.*;
 
 /**
  *
@@ -45,13 +28,6 @@ public class DomainAdapterNDN extends DomainAdapter {
     private static final Logger LOG = Logger.getLogger(DomainAdapterNDN.class.getName());
 
     private CCNHandle handle;
-
-    static {
-        // suppress all the logs from NDN
-        Level[] levels = Log.getLevels();
-        Arrays.setAll(levels, i -> Level.OFF);
-        Log.setLevels(levels);
-    }
 
     public DomainAdapterNDN(String name) {
         super(name);
@@ -76,16 +52,25 @@ public class DomainAdapterNDN extends DomainAdapter {
     private boolean handleInterest(Interest interest) {
         LOG.log(Level.INFO, String.format("[%,d] Got interest %s", System.nanoTime(), interest));
 
-        if ((SegmentationProfile.isSegment(interest.name()) && !SegmentationProfile.isFirstSegment(interest.name()))
-                || interest.name().contains(CommandMarker.COMMAND_MARKER_BASIC_ENUMERATION.getBytes())
-                || MetadataProfile.isHeader(interest.name())) {
+        if (needSkip(interest.name())) {
             LOG.log(Level.INFO, String.format("[%,d] Got interest %s, but we do not handle them.", System.nanoTime(), interest));
             return false;
         }
+        if (VersioningProfile.hasTerminalVersion(interest.name())) {
 
+        } else {
 
+        }
 
-        return false;
+        return true;
+    }
+
+    private void handleStaticRequest(Interest interest) {
+
+    }
+
+    private void handleDynamicRequest(Interest interest) {
+
     }
 
     @Override
@@ -205,6 +190,8 @@ public class DomainAdapterNDN extends DomainAdapter {
             try {
                 ContentObject obj = VersioningProfile.getFirstBlockOfLatestVersion(base, null, null, SystemConfiguration.LONG_TIMEOUT, null, handle);
                 long version = responseTime = VersioningProfile.getLastVersionAsTimestamp(obj.name()).getTime();
+                // round the time to the next second
+                responseTime = responseTime / 1000 * 1000 + ((responseTime % 1000 == 0) ? 0 : 1000);
                 LOG.log(Level.INFO, String.format("[%,d] Got first chunk of latest version for demux:%s, name=%s, version=0x%x exclude=0x%x", System.nanoTime(), demux, obj.name(), version, exclude));
                 if (exclude != null && version <= exclude) {
                     LOG.log(Level.INFO, String.format("[%,d] for demux:%s, latest version %d <= exclude %d, return failure", System.nanoTime(), demux, version, exclude));

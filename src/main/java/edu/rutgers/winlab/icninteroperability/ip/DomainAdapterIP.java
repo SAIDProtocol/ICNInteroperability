@@ -5,52 +5,16 @@
  */
 package edu.rutgers.winlab.icninteroperability.ip;
 
-import com.sun.net.httpserver.HttpExchange;
-import com.sun.net.httpserver.HttpServer;
-import static edu.rutgers.winlab.common.HTTPUtility.CROSS_DOMAIN_HOST_IP;
-import static edu.rutgers.winlab.common.HTTPUtility.HTTP_DATE_FORMAT;
-import static edu.rutgers.winlab.common.HTTPUtility.HTTP_HEADER_HOST;
-import static edu.rutgers.winlab.common.HTTPUtility.HTTP_HEADER_IF_MODIFIED_SINCE;
-import static edu.rutgers.winlab.common.HTTPUtility.HTTP_HEADER_LAST_MODIFIED;
-import static edu.rutgers.winlab.common.HTTPUtility.HTTP_METHOD_DYNAMIC;
-import static edu.rutgers.winlab.common.HTTPUtility.HTTP_METHOD_STATIC;
-import static edu.rutgers.winlab.common.HTTPUtility.HTTP_RESPONSE_CONTENT_LENGTH_SHOULD_NOT_BE_NULL;
-import static edu.rutgers.winlab.common.HTTPUtility.HTTP_RESPONSE_ERROR_IN_READING_REQUEST_BODY;
-import static edu.rutgers.winlab.common.HTTPUtility.HTTP_RESPONSE_HOST_SHOULD_NOT_BE_NULL;
-import static edu.rutgers.winlab.common.HTTPUtility.HTTP_RESPONSE_UNSUPPORTED_ACTION_FORMAT;
-import static edu.rutgers.winlab.common.HTTPUtility.OUTGOING_GATEWAY_DOMAIN_SUFFIX;
-import static edu.rutgers.winlab.common.HTTPUtility.readRequestBody;
-import static edu.rutgers.winlab.common.HTTPUtility.writeNotModified;
-import static edu.rutgers.winlab.common.HTTPUtility.writeQuickResponse;
-import edu.rutgers.winlab.icninteroperability.DataHandler;
-import edu.rutgers.winlab.icninteroperability.DemultiplexingEntity;
-import edu.rutgers.winlab.icninteroperability.DomainAdapter;
-import edu.rutgers.winlab.icninteroperability.canonical.CanonicalRequest;
-import edu.rutgers.winlab.icninteroperability.canonical.CanonicalRequestDynamic;
-import edu.rutgers.winlab.icninteroperability.canonical.CanonicalRequestStatic;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.io.UnsupportedEncodingException;
-import java.net.HttpURLConnection;
-import static java.net.HttpURLConnection.HTTP_BAD_REQUEST;
-import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
-import static java.net.HttpURLConnection.HTTP_NOT_IMPLEMENTED;
-import static java.net.HttpURLConnection.HTTP_OK;
-import java.net.InetSocketAddress;
-import java.net.URL;
-import java.net.URLDecoder;
-import java.net.URLEncoder;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Objects;
-import java.util.function.Consumer;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import static edu.rutgers.winlab.common.HTTPUtility.HTTP_RESPONSE_FAIL_IN_PROCESS;
-import static edu.rutgers.winlab.common.HTTPUtility.writeBody;
+import com.sun.net.httpserver.*;
+import edu.rutgers.winlab.icninteroperability.*;
+import edu.rutgers.winlab.icninteroperability.canonical.*;
+import java.io.*;
+import java.net.*;
+import java.util.*;
+import java.util.function.*;
+import java.util.logging.*;
+import static edu.rutgers.winlab.common.HTTPUtility.*;
+import static java.net.HttpURLConnection.*;
 
 /**
  *
