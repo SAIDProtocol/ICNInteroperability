@@ -5,10 +5,15 @@
  */
 package edu.rutgers.winlab.provider;
 
+import static edu.rutgers.winlab.common.HTTPUtility.parseQuery;
 import static edu.rutgers.winlab.common.NDNUtility.*;
+import static edu.rutgers.winlab.provider.ProviderIP.SLEEP_PARAM_NAME;
 import java.io.*;
 import java.net.URISyntaxException;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.logging.*;
 import org.ccnx.ccn.*;
 import org.ccnx.ccn.config.*;
@@ -81,9 +86,24 @@ public class ProviderNDNDynamic {
         }
         request = new String(requestBody);
         name = name.parent();
-
         LOG.log(Level.INFO, String.format("time=%s, client=%s, request=%s, name=%s", new Date(time), clientName, request, name));
-        byte[] response = String.format("This is a simple response!%nRequest time: %s%nMy Time: %s %nYou are: %s%nInput: %s%nRemaining: %s%n",
+
+        Map<String, List<String>> parameters = new HashMap<>();
+        parseQuery(request, parameters);
+        int sleepLen = 0;
+        try {
+            sleepLen = Integer.parseInt(parameters.get(SLEEP_PARAM_NAME).get(0));
+        } catch (Exception e) {
+        }
+        if (sleepLen > 0) {
+            try {
+                Thread.sleep(sleepLen);
+            } catch (InterruptedException ex) {
+                Logger.getLogger(ProviderIP.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+
+        byte[] response = String.format("This is a simple response from NDN dynamic provider!%nRequest time: %s%nMy Time: %s %nYou are: %s%nInput: %s%nRemaining: %s%n",
                 new Date(time), new Date(System.currentTimeMillis()), clientName, request, name).getBytes();
 
         try (CCNOutputStream cos = new CCNOutputStream(interest.name(), handle)) {

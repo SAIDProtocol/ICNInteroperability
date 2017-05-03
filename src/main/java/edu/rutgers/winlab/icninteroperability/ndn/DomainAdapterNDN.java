@@ -181,8 +181,21 @@ public class DomainAdapterNDN extends DomainAdapter {
         }
 
         private void requestDynamicData(DemultiplexingEntity demux, byte[] input, ContentName base) {
-            //TODO: finish this function
+            try {
+                String inputStr = Component.printURI(input);
+                long time = System.currentTimeMillis();
+                responseTime = time / 1000 * 1000 + ((time % 1000 == 0) ? 0 : 1000);
+                CCNTime version = new CCNTime(time);
+                ContentName contentName = new ContentName(base, inputStr, getName(), version);
+                LOG.log(Level.INFO, String.format("[%,d] Created ContentName %s for demux:%s", System.nanoTime(), contentName, demux));
 
+                try (CCNInputStream cis = new CCNInputStream(contentName, handle)) {
+                    forwardResponse(demux, cis);
+                }
+            } catch (IOException | RuntimeException ex) {
+                LOG.log(Level.SEVERE, String.format("[%,d] Error in retrieving content in NDN demux:%s Name:%s", System.nanoTime(), demux, base), ex);
+                handlers.forEach(h -> h.handleDataFailed(firstRequest.getDemux()));
+            }
         }
 
         private void requestStaticData(DemultiplexingEntity demux, Long exclude, ContentName base) {
@@ -200,7 +213,7 @@ public class DomainAdapterNDN extends DomainAdapter {
                 try (CCNInputStream cis = new CCNInputStream(obj, null, handle)) {
                     forwardResponse(demux, cis);
                 }
-            } catch (IOException | VersionMissingException ex) {
+            } catch (IOException | VersionMissingException | RuntimeException ex) {
                 LOG.log(Level.SEVERE, String.format("[%,d] Error in retrieving content in NDN demux:%s Name:%s", System.nanoTime(), demux, base), ex);
                 handlers.forEach(h -> h.handleDataFailed(firstRequest.getDemux()));
             }

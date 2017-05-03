@@ -111,15 +111,15 @@ public class RunConsumer {
                 if (request == null) {
                     return;
                 }
-                long version = consumer.request(request);
-                System.err.printf("Version is: %s (%d)%n", HTTP_DATE_FORMAT.format(new Date(version)), version);
+                Long version = consumer.request(request);
+                System.err.printf("Version is: %s (%d)%n", version == null ? null : HTTP_DATE_FORMAT.format(new Date(version)), version);
 
                 os.flush();
             }
-        } catch(IOException | ConfigurationException | RuntimeException e) {
+        } catch (IOException | ConfigurationException | RuntimeException e) {
             e.printStackTrace(System.err);
         }
         System.exit(0);
-        
+
     }
 }

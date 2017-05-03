@@ -149,8 +149,8 @@ public class ProviderIP {
             }
         }
 
-        String echo = "This is a simple echo application%nURL is: %s%nRequest string is: %s%nNow: %s%nBye!%n";
-        byte[] result = String.format(echo, uri, queryString, HTTP_DATE_FORMAT.format(new Date())).getBytes();
+        byte[] result = String.format("This is a simple response from IP provider!%nMy Time: %s%nYou are: %s%nInput: %s%nURL: %s%nBye!%n",
+                HTTP_DATE_FORMAT.format(new Date()), exchange.getRemoteAddress(), queryString, uri).getBytes();
         try {
             Date lastModified = new Date();
             LOG.log(Level.INFO, String.format("[%,d] Write file to client URI:%s remote:%s last-modified:%d, len:%d", System.nanoTime(), uri, exchange.getRemoteAddress(), lastModified.getTime(), result.length));
