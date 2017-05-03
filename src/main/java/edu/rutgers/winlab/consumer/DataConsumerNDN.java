@@ -63,11 +63,17 @@ public class DataConsumerNDN implements DataConsumer {
         } catch (MalformedContentNameStringException ex) {
             throw new IOException("Error in forming content name", ex);
         }
+        
+       if (request.getExclude() != null) {
+           CCNTime time = new CCNTime(request.getExclude());
+           contentName = new ContentName(contentName, time);
+       }
+
         ContentObject obj = VersioningProfile.getFirstBlockOfLatestVersion(contentName, null, null, SystemConfiguration.LONG_TIMEOUT, null, handle);
         if (obj == null) {
             throw new IOException("Cannot get the first block of request: " + request);
         }
-        LOG.log(Level.INFO, String.format("[%,d] Got object:%s for request: %s", System.nanoTime(), obj, request));
+//        LOG.log(Level.INFO, String.format("[%,d] Got object:%s for request: %s", System.nanoTime(), obj, request));
         Long version = null;
         try {
             version = VersioningProfile.getLastVersionAsTimestamp(obj.name()).getTime();

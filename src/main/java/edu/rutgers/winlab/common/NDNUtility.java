@@ -57,7 +57,7 @@ public class NDNUtility {
                 ExcludeComponent ec = (ExcludeComponent) elem;
                 byte[] bytes = ec.getBytes();
                 if (VersioningProfile.isVersionComponent(bytes)) {
-                    ret = VersioningProfile.getVersionComponentAsLong(bytes);
+                    ret = VersioningProfile.getVersionComponentAsTimestamp(bytes).getTime();
                 }
             }
         }

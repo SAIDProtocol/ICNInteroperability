@@ -52,8 +52,8 @@ However, do not set sleep > 4000, since this is the timeout time in CCN. You wil
 - [x] IP Content consumer
   - [x] static (similar to file retriever)
   - [x] dynamic (similar to ORS client)
-- [ ] NDN Adapter
-  - [ ] Consumer side (left) static
+- [x] NDN Adapter
+  - [x] Consumer side (left) static
   - [x] Provider side (right) static
   - [x] Consumer side (left) dynamic
   - [x] Provider side (right) dynamic

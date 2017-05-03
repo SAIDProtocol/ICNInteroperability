@@ -5,6 +5,7 @@
  */
 package edu.rutgers.winlab.icninteroperability.ndn;
 
+import edu.rutgers.winlab.common.NDNUtility;
 import edu.rutgers.winlab.icninteroperability.*;
 import edu.rutgers.winlab.icninteroperability.canonical.*;
 import java.io.*;
@@ -17,6 +18,7 @@ import org.ccnx.ccn.io.*;
 import org.ccnx.ccn.profiles.*;
 import org.ccnx.ccn.protocol.*;
 import static edu.rutgers.winlab.common.NDNUtility.*;
+import edu.rutgers.winlab.icninteroperability.ip.DomainAdapterIP;
 import java.net.URISyntaxException;
 import org.ccnx.ccn.impl.support.Tuple;
 import static org.ccnx.ccn.profiles.VersioningProfile.hasTerminalVersion;
@@ -79,7 +81,33 @@ public class DomainAdapterNDN extends DomainAdapter {
     }
 
     private boolean handleStaticRequest(Interest interest, String domain, ContentName name) {
-        return false;
+        Long exclude = NDNUtility.getLastTimeFromExclude(interest.exclude());
+        Date d = exclude == null ? null : new Date(exclude);
+        String url = name.toString();
+
+        if (url.startsWith("/")) {
+            url = url.substring(1);
+        }
+        LOG.log(Level.INFO, String.format("[%,d] domain:%s, name:%s, exclude: %d (%s)", System.nanoTime(), domain, url, exclude, d));
+        CanonicalRequestStatic req = new CanonicalRequestStatic(domain, url, exclude, this);
+        DemultiplexingEntity demux = req.getDemux();
+
+        ResponseHandler handler;
+        boolean needRaise = false;
+
+        synchronized (pendingRequests) {
+            handler = pendingRequests.get(demux);
+            if (handler == null) {
+                needRaise = true;
+                pendingRequests.put(demux, handler = new ResponseHandler());
+            }
+            handler.addClient(interest);
+        }
+        LOG.log(Level.INFO, String.format("[%,d] Got canonical request: %s, need raise: %b", System.nanoTime(), req, needRaise));
+        if (needRaise) {
+            raiseRequest(req);
+        }
+        return true;
     }
 
     private boolean handleDynamicRequest(Interest interest, String domain, ContentName name) {
@@ -125,7 +153,6 @@ public class DomainAdapterNDN extends DomainAdapter {
                 return false;
             }
         }
-
         return true;
     }
 
@@ -380,7 +407,17 @@ public class DomainAdapterNDN extends DomainAdapter {
 
         private void requestStaticData(DemultiplexingEntity demux, Long exclude, ContentName base) {
             try {
+                if (exclude != null) {
+                    CCNTime time = new CCNTime(exclude);
+                    base = new ContentName(base, time);
+                }
+
                 ContentObject obj = VersioningProfile.getFirstBlockOfLatestVersion(base, null, null, SystemConfiguration.LONG_TIMEOUT, null, handle);
+                if (obj == null) {
+                    LOG.log(Level.SEVERE, String.format("[%,d] Cannot find content in NDN demux:%s Name:%s", System.nanoTime(), demux, base));
+                    handlers.forEach(h -> h.handleDataFailed(firstRequest.getDemux()));
+                    return;
+                }
                 long version = responseTime = VersioningProfile.getLastVersionAsTimestamp(obj.name()).getTime();
                 // round the time to the next second
                 responseTime = responseTime / 1000 * 1000 + ((responseTime % 1000 == 0) ? 0 : 1000);
