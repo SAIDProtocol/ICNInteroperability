@@ -32,9 +32,9 @@ import java.util.logging.Logger;
  *
  * @author ubuntu
  */
-public class ConsumerIP implements Consumer {
+public class DataConsumerIP implements DataConsumer {
 
-    private static final Logger LOG = Logger.getLogger(ConsumerIP.class.getName());
+    private static final Logger LOG = Logger.getLogger(DataConsumerIP.class.getName());
 
     private Long forwardResponse(DemultiplexingEntity demux, String urlStr, HttpURLConnection connection, DataHandler output) throws IOException {
         Long responseTime = null;
@@ -44,7 +44,7 @@ public class ConsumerIP implements Consumer {
             String lastModified = connection.getHeaderField(HTTP_HEADER_LAST_MODIFIED);
             try {
                 responseTime = HTTP_DATE_FORMAT.parse(lastModified).getTime();
-                LOG.log(Level.INFO, String.format("[%,d] Get content URL:%s LastModified:%d", System.nanoTime(), urlStr, responseTime));
+                LOG.log(Level.INFO, String.format("[%,d] Get content URL:%s LastModified:%s (%d)", System.nanoTime(), urlStr, lastModified, responseTime));
             } catch (Exception e) {
             }
             byte[] buf = new byte[1500];
@@ -61,7 +61,7 @@ public class ConsumerIP implements Consumer {
     }
 
     @Override
-    public Long requestStatic(CanonicalRequestStatic request, DataHandler output) throws IOException {
+    public Long requestStatic(CanonicalRequestStatic request) throws IOException {
         String urlStr = null, host = null;
         String domain = request.getDestDomain(), name = request.getTargetName();
         Long exclude = request.getExclude();
@@ -88,7 +88,7 @@ public class ConsumerIP implements Consumer {
             if (exclude != null) {
                 connection.setRequestProperty(HTTP_HEADER_IF_MODIFIED_SINCE, HTTP_DATE_FORMAT.format(new Date(exclude)));
             }
-            return forwardResponse(request.getDemux(), urlStr, connection, output);
+            return forwardResponse(request.getDemux(), urlStr, connection, request.getDataHandler());
         } finally {
             if (connection != null) {
                 try {
@@ -101,7 +101,7 @@ public class ConsumerIP implements Consumer {
     }
 
     @Override
-    public Long requestDynamic(CanonicalRequestDynamic request, DataHandler output) throws IOException {
+    public Long requestDynamic(CanonicalRequestDynamic request) throws IOException {
         String urlStr = null, host = null;
         String domain = request.getDestDomain(), name = request.getTargetName();
         byte[] input = request.getInput();
@@ -133,7 +133,7 @@ public class ConsumerIP implements Consumer {
                     reqOutput.write(input);
                 }
             }
-            return forwardResponse(request.getDemux(), urlStr, connection, output);
+            return forwardResponse(request.getDemux(), urlStr, connection, request.getDataHandler());
 
         } finally {
             if (connection != null) {

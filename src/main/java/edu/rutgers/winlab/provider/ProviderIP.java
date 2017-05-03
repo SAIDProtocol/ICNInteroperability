@@ -149,8 +149,8 @@ public class ProviderIP {
             }
         }
 
-        String echo = "This is a simple echo application%nRequest string is: %s%nNow: %s%nBye!%n";
-        byte[] result = String.format(echo, queryString, HTTP_DATE_FORMAT.format(new Date())).getBytes();
+        String echo = "This is a simple echo application%nURL is: %s%nRequest string is: %s%nNow: %s%nBye!%n";
+        byte[] result = String.format(echo, uri, queryString, HTTP_DATE_FORMAT.format(new Date())).getBytes();
         try {
             Date lastModified = new Date();
             LOG.log(Level.INFO, String.format("[%,d] Write file to client URI:%s remote:%s last-modified:%d, len:%d", System.nanoTime(), uri, exchange.getRemoteAddress(), lastModified.getTime(), result.length));
@@ -167,4 +167,18 @@ public class ProviderIP {
     public void stop() {
         server.stop(0);
     }
+
+    public static void main(String[] args) throws IOException {
+        if (args.length < 3) {
+            System.out.printf("Usage: java %s <port> <folder> <wait>%n", ProviderIP.class.getName());
+            return;
+        }
+        int port = Integer.parseInt(args[0]);
+        String folder = args[1];
+        int wait = Integer.parseInt(args[2]);
+        System.out.printf("Starting IP Provider on %d, folder %s, static file wait time %d%n", port, folder, wait);
+        ProviderIP provider = new ProviderIP(80, folder, wait);
+        provider.start();
+    }
+
 }

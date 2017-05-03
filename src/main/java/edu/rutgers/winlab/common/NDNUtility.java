@@ -25,6 +25,7 @@ import org.ccnx.ccn.protocol.ExcludeComponent;
  * @author ubuntu
  */
 public class NDNUtility {
+    public static final String CROSS_DOMAIN_HOST_NDN = "INTR_NDN";
 
     public static boolean isOldHeader(ContentName potentialHeaderName) {
 

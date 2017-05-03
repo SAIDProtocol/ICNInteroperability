@@ -27,11 +27,11 @@
                     <descriptorRefs>
                         <descriptorRef>jar-with-dependencies</descriptorRef>
                     </descriptorRefs>
-                    <archive>
+<!--                    <archive>
                         <manifest>
                             <mainClass>edu.rutgers.winlab.Main</mainClass>
                         </manifest>
-                    </archive>
+                    </archive>-->
                 </configuration>
                 <executions>
                     <execution>

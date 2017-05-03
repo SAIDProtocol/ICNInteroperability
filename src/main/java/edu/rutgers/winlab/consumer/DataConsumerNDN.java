@@ -6,11 +6,9 @@
 package edu.rutgers.winlab.consumer;
 
 import static edu.rutgers.winlab.common.NDNUtility.*;
-import static edu.rutgers.winlab.icninteroperability.ndn.DomainAdapterNDN.*;
 import edu.rutgers.winlab.icninteroperability.*;
 import edu.rutgers.winlab.icninteroperability.canonical.*;
 import java.io.*;
-import java.net.*;
 import java.util.logging.*;
 import org.ccnx.ccn.*;
 import org.ccnx.ccn.config.*;
@@ -22,14 +20,14 @@ import org.ccnx.ccn.protocol.*;
  *
  * @author ubuntu
  */
-public class ConsumerNDN implements Consumer {
+public class DataConsumerNDN implements DataConsumer {
 
-    private static final Logger LOG = Logger.getLogger(ConsumerNDN.class.getName());
+    private static final Logger LOG = Logger.getLogger(DataConsumerNDN.class.getName());
 
     private final CCNHandle handle;
     private final String clientName;
 
-    public ConsumerNDN(String clientName) throws ConfigurationException, IOException {
+    public DataConsumerNDN(String clientName) throws ConfigurationException, IOException {
         handle = CCNHandle.open();
         this.clientName = clientName;
     }
@@ -48,7 +46,7 @@ public class ConsumerNDN implements Consumer {
     }
 
     @Override
-    public Long requestStatic(CanonicalRequestStatic request, DataHandler output) throws IOException {
+    public Long requestStatic(CanonicalRequestStatic request) throws IOException {
         String domain = request.getDestDomain(), name = request.getTargetName();
         ContentName contentName;
         try {
@@ -63,11 +61,15 @@ public class ConsumerNDN implements Consumer {
             throw new IOException("Error in forming content name", ex);
         }
         ContentObject obj = VersioningProfile.getFirstBlockOfLatestVersion(contentName, null, null, SystemConfiguration.LONG_TIMEOUT, null, handle);
+        if (obj == null) {
+            throw new IOException("Cannot get the first block of request: " + request);
+        }
+        LOG.log(Level.INFO, String.format("[%,d] Got object:%s for request: %s", System.nanoTime(), obj, request));
         Long version = null;
         try {
             version = VersioningProfile.getLastVersionAsTimestamp(obj.name()).getTime();
         } catch (VersionMissingException ex) {
-            LOG.log(Level.INFO, String.format("[%,d] Failed in finding version in response:%s, request:%s", System.nanoTime(), obj, request));
+            LOG.log(Level.INFO, String.format("[%,d] Failed in finding version in response:%s, request:%s", System.nanoTime(), obj, request), ex);
         }
         Long exclude = request.getExclude();
         LOG.log(Level.INFO, String.format("[%,d] Got first chunk of latest version for request:%s, name=%s, version=0x%x", System.nanoTime(), request, obj.name(), version));
@@ -76,14 +78,14 @@ public class ConsumerNDN implements Consumer {
             throw new IOException("Cannot find a version that satisfies the request: " + request);
         }
         try (CCNInputStream cis = new CCNInputStream(obj, null, handle)) {
-            forwardResponse(request.getDemux(), cis, output, version);
+            forwardResponse(request.getDemux(), cis, request.getDataHandler(), version);
         }
         LOG.log(Level.INFO, String.format("[%,d] Finished getting content request:%s", System.nanoTime(), request));
         return version;
     }
 
     @Override
-    public Long requestDynamic(CanonicalRequestDynamic request, DataHandler output) throws IOException {
+    public Long requestDynamic(CanonicalRequestDynamic request) throws IOException {
         String domain = request.getDestDomain(), name = request.getTargetName();
         ContentName contentName;
         if (!name.startsWith("/")) {
@@ -107,44 +109,8 @@ public class ConsumerNDN implements Consumer {
         LOG.log(Level.INFO, String.format("[%,d] Created ContentName %s for request:%s", System.nanoTime(), contentName, request));
 
         try (CCNInputStream cis = new CCNInputStream(contentName, handle)) {
-            forwardResponse(request.getDemux(), cis, output, time);
+            forwardResponse(request.getDemux(), cis, request.getDataHandler(), time);
         }
         return time;
-    }
-
-    public static void main(String[] args) throws ConfigurationException, IOException, Component.DotDot, URISyntaxException {
-        suppressNDNLog();
-        String requestName = "/test/request";
-        byte[] requestBody = "testRequestBody/!sd;lg??abcapoqnvqpdnb;??nabpqno".getBytes();
-
-//        String outputName = "request.txt";
-        ConsumerNDN c = new ConsumerNDN("Test");
-        try (OutputStream fos = System.out) {
-
-            DataHandler handler = new DataHandler() {
-                @Override
-                public void handleDataRetrieved(DemultiplexingEntity demux, byte[] data, int size, Long time, boolean finished) {
-                    try {
-                        fos.write(data, 0, size);
-                        if (finished) {
-                            fos.flush();
-                        }
-                    } catch (IOException ex) {
-                        ex.printStackTrace(System.err);
-                    }
-                }
-
-                @Override
-                public void handleDataFailed(DemultiplexingEntity demux) {
-                }
-            };
-
-            CanonicalRequestDynamic req = new CanonicalRequestDynamic(CROSS_DOMAIN_HOST_NDN, null, requestName, requestBody, handler);
-            c.requestDynamic(req, handler);
-        } catch (Exception e) {
-            e.printStackTrace(System.err);
-        }
-        System.exit(0);
-
     }
 }

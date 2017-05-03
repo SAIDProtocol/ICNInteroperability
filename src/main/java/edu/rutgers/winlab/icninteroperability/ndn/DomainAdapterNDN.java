@@ -24,7 +24,6 @@ import static edu.rutgers.winlab.common.NDNUtility.*;
  */
 public class DomainAdapterNDN extends DomainAdapter {
 
-    public static final String CROSS_DOMAIN_HOST_NDN = "INTR_NDN";
     private static final Logger LOG = Logger.getLogger(DomainAdapterNDN.class.getName());
 
     private CCNHandle handle;

@@ -22,15 +22,21 @@ import org.ccnx.ccn.protocol.*;
  *
  * @author ubuntu
  */
-public class ProviderNDN {
+public class ProviderNDNDynamic {
 
-    private static final Logger LOG = Logger.getLogger(ProviderNDN.class.getName());
+    private static final Logger LOG = Logger.getLogger(ProviderNDNDynamic.class.getName());
 
     private final ContentName prefix;
-    private final CCNHandle handle;
+    private CCNHandle handle = null;
 
-    public ProviderNDN(ContentName prefix) throws ConfigurationException, IOException {
+    public ProviderNDNDynamic(ContentName prefix) throws ConfigurationException, IOException {
         this.prefix = prefix;
+    }
+
+    public synchronized void start() throws ConfigurationException, IOException {
+        if (handle != null) {
+            return;
+        }
         handle = CCNHandle.open();
         handle.registerFilter(this.prefix, (CCNInterestHandler) this::handleInterest);
     }
@@ -91,4 +97,14 @@ public class ProviderNDN {
             return false;
         }
     }
+
+    public static void main(String[] args) throws ConfigurationException, IOException, MalformedContentNameStringException {
+        if (args.length < 1) {
+            System.out.printf("Usage: java %s <prefix>%n", ProviderNDNDynamic.class.getName());
+            return;
+        }
+        ProviderNDNDynamic providerNDNDynamic = new ProviderNDNDynamic(ContentName.fromNative(args[0]));
+        providerNDNDynamic.start();
+    }
+
 }

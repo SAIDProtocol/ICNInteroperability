@@ -5,7 +5,6 @@
  */
 package edu.rutgers.winlab.consumer;
 
-import edu.rutgers.winlab.icninteroperability.*;
 import edu.rutgers.winlab.icninteroperability.canonical.*;
 import java.io.*;
 
@@ -13,30 +12,32 @@ import java.io.*;
  *
  * @author ubuntu
  */
-public interface Consumer {
+public interface DataConsumer {
 
     /**
      * Request a static content and write it to an output stream.
-     * 
+     *
      * @param request the request to be sent.
-     * @param output the output stream to write to.
      * @return The last modified time, null if not specified by the server.
      * @throws java.io.IOException
      */
-    public Long requestStatic(CanonicalRequestStatic request, DataHandler output) throws IOException;
+    public Long requestStatic(CanonicalRequestStatic request) throws IOException;
 
     /**
      * Request a dynamic content and write it to an output stream.
-     * 
+     *
      * @param request the request to be sent.
-     * @param output the output stream to write to.
-     * @return The last modified time, null if not specified by the server. 
+     * @return The last modified time, null if not specified by the server.
      * @throws java.io.IOException
      */
-    public Long requestDynamic(CanonicalRequestDynamic request, DataHandler output) throws IOException;
+    public Long requestDynamic(CanonicalRequestDynamic request) throws IOException;
 
-    
-    public static void main(String[] args) {
-        
+    public default Long request(CanonicalRequest request) throws IOException {
+        if (request instanceof CanonicalRequestStatic) {
+            return requestStatic((CanonicalRequestStatic) request);
+        } else if (request instanceof CanonicalRequestDynamic) {
+            return requestDynamic((CanonicalRequestDynamic) request);
+        }
+        throw new IOException("Cannot understand request: " + request);
     }
 }
