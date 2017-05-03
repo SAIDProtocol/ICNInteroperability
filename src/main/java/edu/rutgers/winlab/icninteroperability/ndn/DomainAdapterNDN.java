@@ -17,6 +17,9 @@ import org.ccnx.ccn.io.*;
 import org.ccnx.ccn.profiles.*;
 import org.ccnx.ccn.protocol.*;
 import static edu.rutgers.winlab.common.NDNUtility.*;
+import java.net.URISyntaxException;
+import org.ccnx.ccn.impl.support.Tuple;
+import static org.ccnx.ccn.profiles.VersioningProfile.hasTerminalVersion;
 
 /**
  *
@@ -48,37 +51,214 @@ public class DomainAdapterNDN extends DomainAdapter {
     }
 
 //========================= Begin region: left hand side, the consumer domain =========================
-    private boolean handleInterest(Interest interest) {
-        LOG.log(Level.INFO, String.format("[%,d] Got interest %s", System.nanoTime(), interest));
+    private final HashMap<DemultiplexingEntity, ResponseHandler> pendingRequests = new HashMap<>();
 
+    private boolean handleInterest(Interest interest) {
         if (needSkip(interest.name())) {
-            LOG.log(Level.INFO, String.format("[%,d] Got interest %s, but we do not handle them.", System.nanoTime(), interest));
+            LOG.log(Level.INFO, String.format("[%,d] Skip interest %s.", System.nanoTime(), interest));
             return false;
         }
-        if (VersioningProfile.hasTerminalVersion(interest.name())) {
+        LOG.log(Level.INFO, String.format("[%,d] Got interest %s", System.nanoTime(), interest));
 
+        ContentName name = interest.name();
+        String host = name.count() == 0 ? "" : new String(name.component(0));
+        String domain = host.toUpperCase();
+        if (!domain.startsWith(CROSS_DOMAIN_HOST_PREFIX)) {
+            domain = CROSS_DOMAIN_HOST_NDN;
         } else {
+            name = name.subname(1, name.count());
+        }
 
+        LOG.log(Level.INFO, String.format("[%,d] domain:%s, name:%s", System.nanoTime(), domain, name));
+
+        if (VersioningProfile.hasTerminalVersion(interest.name())) {
+            return handleDynamicRequest(interest, domain, name);
+        } else {
+            return handleStaticRequest(interest, domain, name);
+        }
+    }
+
+    private boolean handleStaticRequest(Interest interest, String domain, ContentName name) {
+        return false;
+    }
+
+    private boolean handleDynamicRequest(Interest interest, String domain, ContentName name) {
+        Tuple<ContentName, byte[]> t = VersioningProfile.cutTerminalVersion(name);
+        name = t.first();
+        long time = VersioningProfile.getVersionComponentAsTimestamp(t.second()).getTime();
+
+        if (name.count() < 3) {
+            LOG.log(Level.INFO, String.format("[%,d] Name %s does not satisfy requirement count < 3. Skip.", System.nanoTime(), name));
+        }
+
+        String clientName = Component.printNative(name.component(name.count() - 1));
+        name = name.parent();
+        byte[] requestBody = name.component(name.count() - 1);
+        String request = new String(requestBody);
+        try {
+            requestBody = Component.parseURI(request);
+        } catch (Component.DotDot | URISyntaxException ex) {
+            LOG.log(Level.SEVERE, String.format("[%,d] Error in parsing the request body: %s", System.nanoTime(), request), ex);
+            return false;
+        }
+        name = name.parent();
+        String url = name.toString();
+
+        if (url.startsWith("/")) {
+            url = url.substring(1);
+        }
+        LOG.log(Level.INFO, String.format("[%,d] time=%s, client=%s, requestLen=%d, name=%s", System.nanoTime(), new Date(time), clientName, requestBody.length, url));
+        CanonicalRequestDynamic req = new CanonicalRequestDynamic(domain, new DemultiplexingEntityNDNDynamic(clientName, time), url, requestBody, this);
+
+        ResponseHandler handler;
+        DemultiplexingEntity demux = req.getDemux();
+        synchronized (pendingRequests) {
+            handler = pendingRequests.get(demux);
+            if (handler == null) {
+                pendingRequests.put(demux, handler = new ResponseHandler());
+                handler.addClient(interest);
+                LOG.log(Level.INFO, String.format("[%,d] Got canonical request: %s, need raise: %b", System.nanoTime(), req, true));
+                raiseRequest(req);
+            } else {
+                // should not reach here, dynamic request should have no pending interests
+                LOG.log(Level.SEVERE, String.format("[%,d] Having duplicate demux %s for dynamic request", System.nanoTime(), demux));
+                return false;
+            }
         }
 
         return true;
     }
 
-    private void handleStaticRequest(Interest interest) {
-
-    }
-
-    private void handleDynamicRequest(Interest interest) {
-
-    }
-
     @Override
     public void handleDataRetrieved(DemultiplexingEntity demux, byte[] data, int size, Long time, boolean finished) {
-
+        ResponseHandler handler;
+        if (finished) {
+            synchronized (pendingRequests) {
+                handler = pendingRequests.remove(demux);
+            }
+        } else {
+            synchronized (pendingRequests) {
+                handler = pendingRequests.get(demux);
+            }
+        }
+        if (handler != null) {
+            try {
+                handler.addData(data, size, time, finished);
+            } catch (Exception ex) {
+                LOG.log(Level.SEVERE, String.format("[%,d] Error in writing data to %s", System.nanoTime(), demux), ex);
+            }
+        }
     }
 
     @Override
     public void handleDataFailed(DemultiplexingEntity demux) {
+        ResponseHandler handler;
+        synchronized (pendingRequests) {
+            handler = pendingRequests.remove(demux);
+        }
+        handler.handleDataFailed();
+    }
+
+    private class ResponseHandler {
+
+        private final HashMap<Interest, CCNOutputStream[]> pendingClients = new HashMap<>();
+        private final ByteArrayOutputStream pendingResponse = new ByteArrayOutputStream();
+        private Long time = null;
+        private boolean responseFinished = false;
+
+        public synchronized void addClient(Interest request) {
+            CCNOutputStream cos = null;
+            if (hasTerminalVersion(request.name())) {
+                try {
+                    cos = new CCNOutputStream(request.name(), handle);
+                    cos.addOutstandingInterest(request);
+                    if (pendingResponse.size() > 0) {
+                        cos.write(pendingResponse.toByteArray());
+                    }
+                } catch (Exception e) {
+                    LOG.log(Level.WARNING, String.format("[%,d] Error in creating output for %s", System.nanoTime(), request), e);
+                }
+            } else if (time != null) {
+                try {
+                    cos = createOutputStreamForInterest(request);
+                } catch (Exception e) {
+                    LOG.log(Level.WARNING, String.format("[%,d] Error in creating output for %s", System.nanoTime(), request), e);
+                }
+            }
+            pendingClients.put(request, new CCNOutputStream[]{cos});
+        }
+
+        private CCNOutputStream createOutputStreamForInterest(Interest request) throws IOException {
+            CCNOutputStream cos;
+            ContentName n = request.name();
+            CCNTime v = new CCNTime(time);
+            n = new ContentName(n, v);
+            cos = new CCNOutputStream(n, handle);
+            cos.addOutstandingInterest(request);
+            if (pendingResponse.size() > 0) {
+                cos.write(pendingResponse.toByteArray());
+            }
+            return cos;
+        }
+
+        public synchronized void handleDataFailed() {
+            if (responseFinished) {
+                return;
+            }
+            responseFinished = true;
+            pendingClients.entrySet().forEach((pendingClient) -> {
+                try {
+                    LOG.log(Level.INFO, String.format("[%,d] Skipped and closed %s due to failure", System.nanoTime(), pendingClient.getKey()));
+                    CCNOutputStream cos = pendingClient.getValue()[0];
+                    if (cos != null) {
+                        cos.close();
+                    }
+                } catch (Exception e) {
+                    LOG.log(Level.WARNING, String.format("[%,d] Error in closing output for %s", System.nanoTime(), pendingClient.getKey()), e);
+                }
+            });
+        }
+
+        public synchronized void addData(byte[] data, int size, Long time, boolean finished) throws IOException {
+            if (this.responseFinished) {
+                return;
+            }
+            if (time != null) {
+                if (this.time == null) {
+                    this.time = time;
+                } else if (!Objects.equals(time, this.time)) {
+                    LOG.log(Level.WARNING, String.format("[%,d] New time (%d) not equal to prev time (%d), set to the new time", System.nanoTime(), time, this.time));
+                    this.time = time;
+                }
+            }
+            pendingClients.entrySet().forEach(pair -> {
+                CCNOutputStream[] cos = pair.getValue();
+                if (cos[0] == null) {
+                    if (this.time != null) {
+                        try {
+                            cos[0] = createOutputStreamForInterest(pair.getKey());
+                        } catch (IOException ex) {
+                            LOG.log(Level.WARNING, String.format("[%,d] Error in creating output for %s", System.nanoTime(), pair.getKey()), ex);
+                        }
+                    }
+                }
+                if (cos[0] != null) {
+                    try {
+                        cos[0].write(data, 0, size);
+                        if (finished) {
+                            cos[0].flush();
+                            cos[0].close();
+                        }
+                    } catch (IOException ex) {
+                        LOG.log(Level.WARNING, String.format("[%,d] Error in writing data for %s", System.nanoTime(), pair.getKey()), ex);
+                    }
+                }
+            });
+            pendingResponse.write(data, 0, size);
+            if (finished) {
+                this.responseFinished = true;
+            }
+        }
     }
 
 //========================= End region: left hand side, the consumer domain =========================

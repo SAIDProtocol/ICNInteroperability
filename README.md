@@ -35,6 +35,7 @@ java -classpath $EXECUTE edu.rutgers.winlab.provider.CCNFileProxy %filePrefix% %
 java -classpath $EXECUTE edu.rutgers.winlab.consumer.RunConsumer %output% static|dynamic %clientDomain% %clientName% %dstDomain% %name% [%version%|%input%]
 ```
 You can specify sleep time in the input (e.g., sleep=xxx). The server should wait for xxx ms before responding.
+
 However, do not set sleep > 4000, since this is the timeout time in CCN. You will not get response if you specify a large value.
 
 ## Task list
@@ -54,7 +55,7 @@ However, do not set sleep > 4000, since this is the timeout time in CCN. You wil
 - [ ] NDN Adapter
   - [ ] Consumer side (left) static
   - [x] Provider side (right) static
-  - [ ] Consumer side (left) dynamic
+  - [x] Consumer side (left) dynamic
   - [x] Provider side (right) dynamic
 - [x] NDN Content provider
   - [x] static (use ccnr)
@@ -74,4 +75,5 @@ However, do not set sleep > 4000, since this is the timeout time in CCN. You wil
   - [ ] static (similar to file retriever)
   - [ ] dynamic (similar to ORS client)
 - [ ] Optimization: chunked transmission  
+- [ ] Optimization: put a global pending request table in the gw, instead of each adapter
 

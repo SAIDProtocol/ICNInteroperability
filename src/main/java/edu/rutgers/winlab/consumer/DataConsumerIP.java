@@ -50,6 +50,10 @@ public class DataConsumerIP implements DataConsumer {
     public Long requestStatic(CanonicalRequestStatic request) throws IOException {
         String urlStr = null, host = null;
         String domain = request.getDestDomain(), name = request.getTargetName();
+        if (name.startsWith("/")) {
+            name = name.substring(1);
+        }
+
         Long exclude = request.getExclude();
         if (domain.equals(CROSS_DOMAIN_HOST_IP)) {
             urlStr = "http://" + name;
@@ -83,13 +87,15 @@ public class DataConsumerIP implements DataConsumer {
                 }
             }
         }
-
     }
 
     @Override
     public Long requestDynamic(CanonicalRequestDynamic request) throws IOException {
         String urlStr = null, host = null;
         String domain = request.getDestDomain(), name = request.getTargetName();
+        if (name.startsWith("/")) {
+            name = name.substring(1);
+        }
         byte[] input = request.getInput();
         if (domain.equals(CROSS_DOMAIN_HOST_IP)) {
             urlStr = "http://" + name;

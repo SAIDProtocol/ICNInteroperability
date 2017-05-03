@@ -71,7 +71,7 @@ public class DomainAdapterIP extends DomainAdapter {
         }
 
         String domain = host.toUpperCase();
-        if (domain == null || !domain.startsWith(CROSS_DOMAIN_HOST_PREFIX)) {
+        if (!domain.startsWith(CROSS_DOMAIN_HOST_PREFIX)) {
             // means it is an IP request
             domain = CROSS_DOMAIN_HOST_IP;
             // put the host before the url string

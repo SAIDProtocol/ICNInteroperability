@@ -49,11 +49,14 @@ public class DataConsumerNDN implements DataConsumer {
     public Long requestStatic(CanonicalRequestStatic request) throws IOException {
         String domain = request.getDestDomain(), name = request.getTargetName();
         ContentName contentName;
+        if (!name.startsWith("/")) {
+            name = '/' + name;
+        }
         try {
             if (domain.equals(CROSS_DOMAIN_HOST_NDN)) {
-                contentName = ContentName.fromNative("/" + name);
+                contentName = ContentName.fromNative(name);
             } else {
-                contentName = ContentName.fromNative(String.format("/%s/%s", domain, name));
+                contentName = ContentName.fromNative(String.format("/%s%s", domain, name));
             }
             LOG.log(Level.INFO, String.format("[%,d] Created ContentName %s for request:%s", System.nanoTime(), contentName, request));
 
@@ -95,7 +98,7 @@ public class DataConsumerNDN implements DataConsumer {
             if (domain.equals(CROSS_DOMAIN_HOST_NDN)) {
                 contentName = ContentName.fromNative(name);
             } else {
-                contentName = ContentName.fromNative(String.format("/%s/%s", domain, name));
+                contentName = ContentName.fromNative(String.format("/%s%s", domain, name));
             }
 
         } catch (MalformedContentNameStringException ex) {

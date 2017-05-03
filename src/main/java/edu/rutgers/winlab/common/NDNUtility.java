@@ -8,7 +8,7 @@ package edu.rutgers.winlab.common;
 import java.util.Arrays;
 import java.util.logging.Level;
 import org.ccnx.ccn.impl.support.Log;
-import static org.ccnx.ccn.profiles.CommandMarker.COMMAND_MARKER_BASIC_ENUMERATION;
+import static org.ccnx.ccn.profiles.CommandMarker.isCommandComponent;
 import org.ccnx.ccn.profiles.SegmentationProfile;
 import static org.ccnx.ccn.profiles.SegmentationProfile.isFirstSegment;
 import static org.ccnx.ccn.profiles.SegmentationProfile.isSegment;
@@ -25,6 +25,7 @@ import org.ccnx.ccn.protocol.ExcludeComponent;
  * @author ubuntu
  */
 public class NDNUtility {
+
     public static final String CROSS_DOMAIN_HOST_NDN = "INTR_NDN";
 
     public static boolean isOldHeader(ContentName potentialHeaderName) {
@@ -62,17 +63,26 @@ public class NDNUtility {
         }
         return ret;
     }
-    
+
     public static void suppressNDNLog() {
         Level[] levels = Log.getLevels();
         Arrays.setAll(levels, i -> Level.OFF);
         Log.setLevels(levels);
     }
-    
+
     public static boolean needSkip(ContentName name) {
-        return (isSegment(name) && !isFirstSegment(name))
-                || name.contains(COMMAND_MARKER_BASIC_ENUMERATION.getBytes())
-                || isHeader(name) || isOldHeader(name);
+        if (isSegment(name) && !isFirstSegment(name)) {
+            return true;
+        }
+        if (isHeader(name) || isOldHeader(name)) {
+            return true;
+        }
+        for (int i = 0; i < name.count(); i++) {
+            if (isCommandComponent(name.component(i))) {
+                return true;
+            }
+        }
+        return false;
     }
 
 }

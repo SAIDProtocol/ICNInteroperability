@@ -39,6 +39,7 @@ public class RunGateway {
     }
 
     public static void main(String[] args) throws IOException {
+//        runGatewayIPNDN();
         if (args.length == 0) {
             usage();
             return;
