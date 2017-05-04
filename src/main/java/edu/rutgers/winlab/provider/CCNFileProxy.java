@@ -198,7 +198,7 @@ public class CCNFileProxy implements CCNInterestHandler {
                     read = fis.read(buffer);
                 }
                 fis.close();
-            };
+            }
         } catch (FileNotFoundException fnf) {
             Log.warning("Unexpected: file we expected to exist doesn't exist: {0}!", fileToWrite.getAbsolutePath());
             return false;

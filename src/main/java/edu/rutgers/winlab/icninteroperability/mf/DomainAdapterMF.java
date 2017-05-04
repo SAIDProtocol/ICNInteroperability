@@ -106,6 +106,7 @@ public class DomainAdapterMF extends DomainAdapter {
                     }
 
                     CanonicalRequest req;
+                    // Do not turn to switch, since request.Method can be null
                     if (HTTPUtility.HTTP_METHOD_STATIC.equals(request.Method)) {
                         req = new CanonicalRequestStatic(domainName, request.Name, request.Exclude, DomainAdapterMF.this);
                         DemultiplexingEntity demux = req.getDemux();
