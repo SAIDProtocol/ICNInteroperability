@@ -35,7 +35,7 @@ public class MFUtility {
         DOMAIN_MAPPING_TABLE.put(CROSS_DOMAIN_HOST_NDN, 4097);
         DOMAIN_MAPPING_TABLE.put(CROSS_DOMAIN_HOST_IP, 4098);
     }
-    
+
     public static MFUtility.MFRequest getRequest(CanonicalRequest request, String name, Long reqID) {
         MFUtility.MFRequest req = new MFUtility.MFRequest();
         if (request instanceof CanonicalRequestStatic) {
@@ -132,6 +132,7 @@ public class MFUtility {
         public Integer StatusCode;
         public Long LastModified;
         public byte[] Body;
+        public int BodyLen = 0;
 
         public byte[] encode() {
             String toSend = String.format("%s%n%s%n%s%n",
@@ -142,9 +143,11 @@ public class MFUtility {
             if (Body == null || Body.length == 0) {
                 return buf;
             }
-            byte[] ret = new byte[buf.length + Body.length];
+            int toCopy = BodyLen == 0 ? Body.length : BodyLen;
+            toCopy = Math.min(BodyLen, Body.length);
+            byte[] ret = new byte[buf.length + toCopy];
             System.arraycopy(buf, 0, ret, 0, buf.length);
-            System.arraycopy(Body, 0, ret, buf.length, Body.length);
+            System.arraycopy(Body, 0, ret, buf.length, toCopy);
             return ret;
         }
 
@@ -189,15 +192,15 @@ public class MFUtility {
         return ret;
     }
 
-    public static void main(String[] args) {
-        String str = "aa\n\nbb\r\n\r\n";
-        byte[] buf = str.getBytes();
-        int[] start = {0};
-        while (start[0] < str.length()) {
-            String line = getLine(buf, buf.length, start);
-            System.out.printf("line: %s %d, start: %d%n", line, line.length(), start[0]);
-        }
-        String line = getLine(buf, buf.length, start);
-        System.out.printf("line: %s, start: %d%n", line, start[0]);
-    }
+//    public static void main(String[] args) {
+//        String str = "aa\n\nbb\r\n\r\n";
+//        byte[] buf = str.getBytes();
+//        int[] start = {0};
+//        while (start[0] < str.length()) {
+//            String line = getLine(buf, buf.length, start);
+//            System.out.printf("line: %s %d, start: %d%n", line, line.length(), start[0]);
+//        }
+//        String line = getLine(buf, buf.length, start);
+//        System.out.printf("line: %s, start: %d%n", line, start[0]);
+//    }
 }

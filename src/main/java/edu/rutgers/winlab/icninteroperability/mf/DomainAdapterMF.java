@@ -13,15 +13,24 @@ import static edu.rutgers.winlab.common.MFUtility.getRequest;
 import edu.rutgers.winlab.icninteroperability.DemultiplexingEntity;
 import edu.rutgers.winlab.icninteroperability.DomainAdapter;
 import edu.rutgers.winlab.icninteroperability.canonical.CanonicalRequest;
+import edu.rutgers.winlab.icninteroperability.canonical.CanonicalRequestDynamic;
+import edu.rutgers.winlab.icninteroperability.canonical.CanonicalRequestStatic;
+import edu.rutgers.winlab.icninteroperability.ip.DomainAdapterIP;
 import edu.rutgers.winlab.jmfapi.GUID;
 import edu.rutgers.winlab.jmfapi.JMFAPI;
 import edu.rutgers.winlab.jmfapi.JMFException;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
+import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import sun.security.jgss.HttpCaller;
 
 /**
  *
@@ -31,12 +40,16 @@ public class DomainAdapterMF extends DomainAdapter {
 
     private static final Logger LOG = Logger.getLogger(DomainAdapterMF.class.getName());
     private boolean started = false;
+    private final HashMap<Integer, GUIDListenThread> guidListeners = new HashMap<>();
 
     public DomainAdapterMF(String name, int guid) throws JMFException {
         super(name);
         senderHandle = new JMFAPI();
         this.senderGUID = new GUID(guid);
         senderHandle.jmfopen("basic", this.senderGUID);
+        for (Map.Entry<String, Integer> entry : DOMAIN_MAPPING_TABLE.entrySet()) {
+            guidListeners.put(entry.getValue(), new GUIDListenThread(entry.getValue(), entry.getKey()));
+        }
     }
 
     @Override
@@ -46,6 +59,9 @@ public class DomainAdapterMF extends DomainAdapter {
         }
         started = true;
         new Thread(this::listenerThread).start();
+        guidListeners.values().stream().forEach((value) -> {
+            new Thread(value).start();
+        });
     }
 
     @Override
@@ -53,14 +69,200 @@ public class DomainAdapterMF extends DomainAdapter {
     }
 
 //========================= Begin region: left hand side, the consumer domain =========================
+    private final HashMap<DemultiplexingEntity, ResponseHandler> pendingRequests = new HashMap<>();
+
+    private class GUIDListenThread implements Runnable {
+
+        private final GUID domainGUID;
+        private final String domainName;
+        private final JMFAPI handle;
+        private final byte[] buf = new byte[MFUtility.MAX_BUF_SIZE];
+
+        public GUIDListenThread(int domainGUID, String domainName) throws JMFException {
+            this.domainGUID = new GUID(domainGUID);
+            this.domainName = domainName;
+            handle = new JMFAPI();
+            handle.jmfopen("basic", this.domainGUID);
+        }
+
+        @Override
+        public void run() {
+
+            try {
+                while (true) {
+                    GUID sGUID = new GUID();
+                    int read = handle.jmfrecv_blk(sGUID, buf, buf.length);
+                    if (read < 0) {
+                        LOG.log(Level.SEVERE, "Read from MFAPI < 0, skipped");
+                        continue;
+                    }
+                    MFUtility.MFRequest request = new MFUtility.MFRequest();
+                    if (!request.decode(domainGUID, sGUID, buf, read)) {
+                        continue;
+                    }
+                    CanonicalRequest req;
+                    if (HTTPUtility.HTTP_METHOD_STATIC.equals(request.Method)) {
+                        req = new CanonicalRequestStatic(domainName, request.Name, request.Exclude, DomainAdapterMF.this);
+                        DemultiplexingEntity demux = req.getDemux();
+                        ResponseHandler handler;
+                        boolean needRaise = false;
+
+                        synchronized (pendingRequests) {
+                            handler = pendingRequests.get(demux);
+                            if (handler == null) {
+                                needRaise = true;
+                                pendingRequests.put(demux, handler = new ResponseHandler());
+                            }
+                            handler.addClient(new ClientIdentifier(domainGUID, handle, sGUID, request.RequestID));
+                        }
+                        LOG.log(Level.INFO, String.format("[%,d] Got canonical request: %s, need raise: %b", System.nanoTime(), req, needRaise));
+                        if (needRaise) {
+                            raiseRequest(req);
+                        }
+                    } else if (HTTPUtility.HTTP_METHOD_DYNAMIC.equals(request.Method)) {
+//                        req = new CanonicalRequestDynamic(domainName, demux, domainName, buf, handler)
+                    } else {
+                        LOG.log(Level.INFO, String.format("[%,d] (me:%s, client:%s, reqid:%d) Method (%s) not correct in request", System.nanoTime(), domainGUID, sGUID, request.RequestID, request.Method));
+                        writeBody(handle, sGUID, request.RequestID, HttpURLConnection.HTTP_NOT_IMPLEMENTED, System.currentTimeMillis(), String.format(HTTPUtility.HTTP_RESPONSE_UNSUPPORTED_ACTION_FORMAT, request.Method).getBytes(), 0);
+                        continue;
+                    }
+                }
+            } catch (JMFException ex) {
+                LOG.log(Level.SEVERE, String.format("[%,d] Error in reading content from JMFAPI, contentGUID:%s, exitting", System.nanoTime(), domainGUID), ex);
+            }
+        }
+
+    }
+
+    public static void writeBody(JMFAPI handle, GUID clientGUID, long clientRequestID, int statusCode, Long time, byte[] body, int bodyLen) throws JMFException {
+        MFUtility.MFResponse response = new MFUtility.MFResponse();
+        response.RequestID = clientRequestID;
+        response.StatusCode = statusCode;
+        response.LastModified = time;
+        response.Body = body;
+        response.BodyLen = bodyLen;
+        byte[] toSend = response.encode();
+        handle.jmfsend(toSend, toSend.length, clientGUID);
+    }
+
     @Override
     public void handleDataRetrieved(DemultiplexingEntity demux, byte[] data, int size, Long time, boolean finished) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        ResponseHandler handler;
+        if (finished) {
+            synchronized (pendingRequests) {
+                handler = pendingRequests.remove(demux);
+            }
+        } else {
+            synchronized (pendingRequests) {
+                handler = pendingRequests.get(demux);
+            }
+        }
+        if (handler != null) {
+            try {
+                handler.addData(data, size, time, finished);
+            } catch (Exception ex) {
+                LOG.log(Level.SEVERE, String.format("[%,d] Error in writing data to %s", System.nanoTime(), demux), ex);
+            }
+        }
     }
 
     @Override
     public void handleDataFailed(DemultiplexingEntity demux) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        ResponseHandler handler;
+        synchronized (pendingRequests) {
+            handler = pendingRequests.remove(demux);
+        }
+        handler.handleDataFailed();
+
+    }
+
+    private static class ClientIdentifier {
+
+        public GUID myGUID;
+        public JMFAPI Handle;
+        public GUID ClientGUID;
+        public long ClientRequestID;
+
+        public ClientIdentifier(GUID me, JMFAPI handle, GUID client, long reqID) {
+            myGUID = me;
+            Handle = handle;
+            ClientGUID = client;
+            ClientRequestID = reqID;
+        }
+
+        @Override
+        public String toString() {
+            return String.format("Client{me=%s,c=%s,reqID=%d}", myGUID, ClientGUID, ClientRequestID);
+        }
+
+        public void writeNotModified() throws JMFException {
+            DomainAdapterMF.writeBody(Handle, ClientGUID, ClientRequestID, HttpURLConnection.HTTP_NOT_MODIFIED, System.currentTimeMillis(), null, 0);
+        }
+
+        public void writeBody(byte[] buf, int size, Long time) throws JMFException {
+            DomainAdapterMF.writeBody(Handle, ClientGUID, ClientRequestID, HttpURLConnection.HTTP_OK, time, buf, size);
+        }
+
+    }
+
+    private static class ResponseHandler {
+
+        private final HashSet<ClientIdentifier> pendingClients = new HashSet<>();
+        private final ByteArrayOutputStream pendingResponse = new ByteArrayOutputStream();
+        private Long time = null;
+        private boolean responseFinished = false;
+
+        public synchronized void addClient(ClientIdentifier exchange) {
+            pendingClients.add(exchange);
+        }
+
+        public synchronized void handleDataFailed() {
+            if (responseFinished) {
+                return;
+            }
+            responseFinished = true;
+            pendingClients.forEach((pendingClient) -> {
+                try {
+                    pendingClient.writeNotModified();
+                    LOG.log(Level.INFO, String.format("[%,d] Wrote Not Modified to %s", System.nanoTime(), pendingClient));
+                } catch (Exception ex) {
+                    LOG.log(Level.SEVERE, String.format("[%,d] Error in writing response to %s", System.nanoTime(), pendingClient), ex);
+                }
+            });
+        }
+
+        public synchronized void addData(byte[] data, int size, Long time, boolean finished) throws IOException {
+            if (this.responseFinished) {
+                return;
+            }
+            pendingResponse.write(data, 0, size);
+            if (time != null) {
+                if (this.time == null) {
+                    this.time = time;
+                } else if (!Objects.equals(time, this.time)) {
+                    LOG.log(Level.WARNING, String.format("[%,d] New time (%d) not equal to prev time (%d), set to the new time", System.nanoTime(), time, this.time));
+                    this.time = time;
+                }
+            }
+            if (finished) {
+                this.responseFinished = true;
+                writeToClients();
+            }
+        }
+
+        private void writeToClients() {
+            byte[] buf = pendingResponse.toByteArray();
+            int responseSize = pendingResponse.size();
+            pendingClients.forEach((pendingClient) -> {
+                try {
+                    pendingClient.writeBody(buf, responseSize, time);
+                    LOG.log(Level.INFO, String.format("[%,d] Wrote response to %s", System.nanoTime(), pendingClient));
+                } catch (Exception ex) {
+                    LOG.log(Level.SEVERE, String.format("[%,d] Error in writing response to %s", System.nanoTime(), pendingClient), ex);
+                }
+            });
+        }
+
     }
 
 //========================= End region: left hand side, the consumer domain =========================
@@ -131,12 +333,11 @@ public class DomainAdapterMF extends DomainAdapter {
     }
 
     private void listenerThread() {
-        GUID sGUID = new GUID();
         byte[] buf = new byte[MFUtility.MAX_BUF_SIZE];
-        int read;
         while (true) {
             try {
-                read = senderHandle.jmfrecv_blk(sGUID, buf, buf.length);
+                GUID sGUID = new GUID();
+                int read = senderHandle.jmfrecv_blk(sGUID, buf, buf.length);
                 if (read < 0) {
                     LOG.log(Level.SEVERE, "Read from MFAPI < 0, skipped");
                     continue;

@@ -73,10 +73,10 @@ However, do not set sleep > 4000, since this is the timeout time in CCN. You wil
 - [x] NDN Content consumer
   - [x] static (similar to file retriever)
   - [x] dynamic (similar to ORS client)
-- [ ] MF Adapter
-  - [ ] Consumer side (left) static
+- [x] MF Adapter
+  - [x] Consumer side (left) static
   - [x] Provider side (right) static
-  - [ ] Consumer side (left) dynamic
+  - [x] Consumer side (left) dynamic
   - [x] Provider side (right) dynamic
 - [x] MF Content provider
   - [x] static (similar to file server)
