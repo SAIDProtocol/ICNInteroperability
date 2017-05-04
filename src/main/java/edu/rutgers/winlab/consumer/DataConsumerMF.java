@@ -6,11 +6,10 @@
 package edu.rutgers.winlab.consumer;
 
 import edu.rutgers.winlab.common.HTTPUtility;
-import static edu.rutgers.winlab.common.HTTPUtility.HTTP_METHOD_DYNAMIC;
-import static edu.rutgers.winlab.common.HTTPUtility.HTTP_METHOD_STATIC;
 import edu.rutgers.winlab.common.MFUtility;
 import static edu.rutgers.winlab.common.MFUtility.CROSS_DOMAIN_HOST_MF;
 import static edu.rutgers.winlab.common.MFUtility.DOMAIN_MAPPING_TABLE;
+import static edu.rutgers.winlab.common.MFUtility.getRequest;
 import edu.rutgers.winlab.icninteroperability.canonical.*;
 import edu.rutgers.winlab.jmfapi.GUID;
 import edu.rutgers.winlab.jmfapi.JMFAPI;
@@ -39,19 +38,7 @@ public class DataConsumerMF implements DataConsumer {
         handle.jmfopen("basic", myGUID);
     }
 
-    private MFUtility.MFRequest getRequest(CanonicalRequest request, String name) {
-        MFUtility.MFRequest req = new MFUtility.MFRequest();
-        if (request instanceof CanonicalRequestStatic) {
-            req.Exclude = ((CanonicalRequestStatic) request).getExclude();
-            req.Method = HTTP_METHOD_STATIC;
-        } else if (request instanceof CanonicalRequestDynamic) {
-            req.Method = HTTP_METHOD_DYNAMIC;
-            req.Body = ((CanonicalRequestDynamic) request).getInput();
-        }
-        req.RequestID = System.currentTimeMillis();
-        req.Name = name;
-        return req;
-    }
+    
 
     private Long handleRequest(CanonicalRequest request) throws IOException {
         LOG.log(Level.INFO, String.format("Request: %s", request));
@@ -72,7 +59,7 @@ public class DataConsumerMF implements DataConsumer {
         } else {
             dstGUID = DOMAIN_MAPPING_TABLE.get(domain);
         }
-        MFUtility.MFRequest req = getRequest(request, name);
+        MFUtility.MFRequest req = getRequest(request, name, null);
         byte[] buf = req.encode();
         try {
             handle.jmfsend(buf, buf.length, new GUID(dstGUID));

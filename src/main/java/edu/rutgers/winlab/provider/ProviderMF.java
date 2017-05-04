@@ -204,7 +204,7 @@ public class ProviderMF {
             LOG.log(Level.INFO, String.format("[%,d] (content:%s, client:%s, reqid:%d) Got name: %s.", System.nanoTime(), guid, sGUID, request.RequestID, request.Name));
             LOG.log(Level.INFO, String.format("[%,d] (content:%s, client:%s, reqid:%d) DYNAMIC input.len%d", System.nanoTime(), guid, sGUID, request.RequestID, request.Body == null ? 0 : request.Body.length));
 
-            String queryString = new String(request.Body);
+            String queryString = request.Body == null ? "" : new String(request.Body);
             LOG.log(Level.INFO, String.format("[%,d] request body: %s", System.nanoTime(), queryString));
             Map<String, List<String>> parameters = new HashMap<>();
             parseQuery(queryString, parameters);

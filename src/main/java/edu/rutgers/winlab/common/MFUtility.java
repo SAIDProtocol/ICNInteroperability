@@ -6,7 +6,12 @@
 package edu.rutgers.winlab.common;
 
 import static edu.rutgers.winlab.common.HTTPUtility.CROSS_DOMAIN_HOST_IP;
+import static edu.rutgers.winlab.common.HTTPUtility.HTTP_METHOD_DYNAMIC;
+import static edu.rutgers.winlab.common.HTTPUtility.HTTP_METHOD_STATIC;
 import static edu.rutgers.winlab.common.NDNUtility.CROSS_DOMAIN_HOST_NDN;
+import edu.rutgers.winlab.icninteroperability.canonical.CanonicalRequest;
+import edu.rutgers.winlab.icninteroperability.canonical.CanonicalRequestDynamic;
+import edu.rutgers.winlab.icninteroperability.canonical.CanonicalRequestStatic;
 import edu.rutgers.winlab.jmfapi.GUID;
 import java.net.HttpURLConnection;
 import java.util.Date;
@@ -29,6 +34,20 @@ public class MFUtility {
         DOMAIN_MAPPING_TABLE.put(CROSS_DOMAIN_HOST_MF, 4096);
         DOMAIN_MAPPING_TABLE.put(CROSS_DOMAIN_HOST_NDN, 4097);
         DOMAIN_MAPPING_TABLE.put(CROSS_DOMAIN_HOST_IP, 4098);
+    }
+    
+    public static MFUtility.MFRequest getRequest(CanonicalRequest request, String name, Long reqID) {
+        MFUtility.MFRequest req = new MFUtility.MFRequest();
+        if (request instanceof CanonicalRequestStatic) {
+            req.Exclude = ((CanonicalRequestStatic) request).getExclude();
+            req.Method = HTTP_METHOD_STATIC;
+        } else if (request instanceof CanonicalRequestDynamic) {
+            req.Method = HTTP_METHOD_DYNAMIC;
+            req.Body = ((CanonicalRequestDynamic) request).getInput();
+        }
+        req.RequestID = reqID == null ? System.currentTimeMillis() : reqID;
+        req.Name = name;
+        return req;
     }
 
     /**
