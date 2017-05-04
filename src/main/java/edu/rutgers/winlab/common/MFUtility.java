@@ -13,7 +13,6 @@ import edu.rutgers.winlab.icninteroperability.canonical.CanonicalRequest;
 import edu.rutgers.winlab.icninteroperability.canonical.CanonicalRequestDynamic;
 import edu.rutgers.winlab.icninteroperability.canonical.CanonicalRequestStatic;
 import edu.rutgers.winlab.jmfapi.GUID;
-import java.net.HttpURLConnection;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.logging.Level;

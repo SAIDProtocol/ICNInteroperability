@@ -22,7 +22,8 @@ public class RunGateway {
         System.out.printf("usage: java %s <type>%n", RunGateway.class.getName());
         System.out.println("  type: ipip    run IP(80)-IP(10000) GW");
         System.out.println("  type: ipndn   run IP(80)-NDN GW");
-        System.out.println("  type: ipmf   run IP(80)-MF(4096) GW");
+        System.out.println("  type: ipmf    run IP(80)-MF(4096) GW");
+        System.out.println("  type: mfndn   run MF(4096)-NDN GW");
     }
 
     public static void runGatewayTwoIPs() throws IOException {
@@ -49,6 +50,16 @@ public class RunGateway {
         g2d.start();
     }
 
+    public static void runGatewayMFNDN() throws IOException, JMFException {
+        suppressNDNLog();
+        System.out.println("Starting MF(4096)-NDN GW");
+        DomainAdapter d1 = new DomainAdapterMF("d1:4096", 4096),
+                d2 = new DomainAdapterNDN("d2");
+
+        GatewayTwoDomains g2d = new GatewayTwoDomains(d1, d2);
+        g2d.start();
+    }
+
     public static void main(String[] args) throws IOException, JMFException {
         if (args.length == 0) {
             usage();
@@ -63,6 +74,9 @@ public class RunGateway {
                 break;
             case "ipmf":
                 runGatewayIPMF();
+                break;
+            case "mfndn":
+                runGatewayMFNDN();
                 break;
             default:
                 usage();

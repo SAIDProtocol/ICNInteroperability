@@ -15,7 +15,7 @@ export EXECUTE=ICNInteroperability-1.0-SNAPSHOT-jar-with-dependencies.jar
 ```
 ### Gateway
 ```
-java -classpath $EXECUTE edu.rutgers.winlab.icninteroperability.RunGateway ipip|ipndn
+java -classpath $EXECUTE edu.rutgers.winlab.icninteroperability.RunGateway ipip|ipndn|ipmf|mfndn
 ```
 ### Providers
 #### IP provider
