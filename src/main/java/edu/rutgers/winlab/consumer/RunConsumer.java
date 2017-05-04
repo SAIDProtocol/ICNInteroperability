@@ -7,6 +7,7 @@ package edu.rutgers.winlab.consumer;
 
 import static edu.rutgers.winlab.common.HTTPUtility.CROSS_DOMAIN_HOST_IP;
 import static edu.rutgers.winlab.common.HTTPUtility.HTTP_DATE_FORMAT;
+import static edu.rutgers.winlab.common.MFUtility.CROSS_DOMAIN_HOST_MF;
 import static edu.rutgers.winlab.common.NDNUtility.CROSS_DOMAIN_HOST_NDN;
 import static edu.rutgers.winlab.common.NDNUtility.suppressNDNLog;
 import edu.rutgers.winlab.icninteroperability.DataHandler;
@@ -14,6 +15,7 @@ import edu.rutgers.winlab.icninteroperability.DemultiplexingEntity;
 import edu.rutgers.winlab.icninteroperability.canonical.CanonicalRequest;
 import edu.rutgers.winlab.icninteroperability.canonical.CanonicalRequestDynamic;
 import edu.rutgers.winlab.icninteroperability.canonical.CanonicalRequestStatic;
+import edu.rutgers.winlab.jmfapi.JMFException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -31,17 +33,19 @@ public class RunConsumer {
     private static void usage() {
         System.err.printf("Usage: java %s <output> <static|dynamic> <consumerType> <consumerName> <dstDomain> <name> <[exclude|input]>%n", RunConsumer.class.getName());
         System.err.printf("    output: File name for output. print to System.out if output==%s%n", SYSTEM_OUT_NAME);
-        System.err.printf("    consumerType dstDomain: %s|%s%n", CROSS_DOMAIN_HOST_IP, CROSS_DOMAIN_HOST_NDN);
+        System.err.printf("    consumerType dstDomain: %s|%s|%s%n", CROSS_DOMAIN_HOST_IP, CROSS_DOMAIN_HOST_NDN, CROSS_DOMAIN_HOST_MF);
         System.err.printf("    for static, the last component would be seen as exclude [using HTTP date format]. if cannot be parsed, null will be used%n");
         System.err.printf("    for dynamic, the last component would be seen as input. Empty string will be used if this component does not exist%n");
     }
 
-    private static DataConsumer getConsumerFromType(String type, String name) throws ConfigurationException, IOException {
+    private static DataConsumer getConsumerFromType(String type, String name) throws ConfigurationException, IOException, JMFException {
         switch (type) {
             case CROSS_DOMAIN_HOST_IP:
                 return new DataConsumerIP();
             case CROSS_DOMAIN_HOST_NDN:
                 return new DataConsumerNDN(name);
+            case CROSS_DOMAIN_HOST_MF:
+                return new DataConsumerMF(name);
             default:
                 System.err.printf("Cannot understand consumer type %s%n", type);
                 usage();
@@ -53,6 +57,7 @@ public class RunConsumer {
         switch (domain) {
             case CROSS_DOMAIN_HOST_IP:
             case CROSS_DOMAIN_HOST_NDN:
+            case CROSS_DOMAIN_HOST_MF:
                 break;
             default:
                 System.err.printf("Cannot understand dstDomain type %s%n", domain);
@@ -76,7 +81,7 @@ public class RunConsumer {
         }
     }
 
-    public static void main(String[] args) throws ConfigurationException, IOException {
+    public static void main(String[] args) throws ConfigurationException, IOException, JMFException {
         suppressNDNLog();
         if (args.length < 6) {
             usage();

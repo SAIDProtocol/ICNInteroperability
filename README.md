@@ -69,10 +69,10 @@ However, do not set sleep > 4000, since this is the timeout time in CCN. You wil
   - [ ] Consumer side (left) dynamic
   - [ ] Provider side (right) dynamic
 - [ ] MF Content provider
-  - [ ] static (similar to file server)
+  - [x] static (similar to file server)
   - [ ] dynamic (similar to ORS)
 - [ ] MF Content consumer
-  - [ ] static (similar to file retriever)
+  - [x] static (similar to file retriever)
   - [ ] dynamic (similar to ORS client)
 - [ ] Optimization: chunked transmission  
 - [ ] Optimization: put a global pending request table in the gw, instead of each adapter

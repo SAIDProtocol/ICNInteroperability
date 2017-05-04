@@ -8,17 +8,17 @@ package edu.rutgers.winlab.common;
 import java.util.Arrays;
 import java.util.logging.Level;
 import org.ccnx.ccn.impl.support.Log;
-import static org.ccnx.ccn.profiles.CommandMarker.isCommandComponent;
 import org.ccnx.ccn.profiles.SegmentationProfile;
-import static org.ccnx.ccn.profiles.SegmentationProfile.isFirstSegment;
-import static org.ccnx.ccn.profiles.SegmentationProfile.isSegment;
 import org.ccnx.ccn.profiles.VersioningProfile;
 import org.ccnx.ccn.profiles.metadata.MetadataProfile;
-import static org.ccnx.ccn.profiles.metadata.MetadataProfile.OLD_METADATA_NAMESPACE;
-import static org.ccnx.ccn.profiles.metadata.MetadataProfile.isHeader;
 import org.ccnx.ccn.protocol.ContentName;
 import org.ccnx.ccn.protocol.Exclude;
 import org.ccnx.ccn.protocol.ExcludeComponent;
+import static org.ccnx.ccn.profiles.CommandMarker.isCommandComponent;
+import static org.ccnx.ccn.profiles.SegmentationProfile.isFirstSegment;
+import static org.ccnx.ccn.profiles.SegmentationProfile.isSegment;
+import static org.ccnx.ccn.profiles.metadata.MetadataProfile.isHeader;
+import static org.ccnx.ccn.profiles.metadata.MetadataProfile.OLD_METADATA_NAMESPACE;
 
 /**
  *
