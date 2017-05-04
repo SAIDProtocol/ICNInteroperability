@@ -15,7 +15,6 @@ import edu.rutgers.winlab.icninteroperability.DomainAdapter;
 import edu.rutgers.winlab.icninteroperability.canonical.CanonicalRequest;
 import edu.rutgers.winlab.icninteroperability.canonical.CanonicalRequestDynamic;
 import edu.rutgers.winlab.icninteroperability.canonical.CanonicalRequestStatic;
-import edu.rutgers.winlab.icninteroperability.ip.DomainAdapterIP;
 import edu.rutgers.winlab.jmfapi.GUID;
 import edu.rutgers.winlab.jmfapi.JMFAPI;
 import edu.rutgers.winlab.jmfapi.JMFException;
@@ -30,7 +29,6 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import sun.security.jgss.HttpCaller;
 
 /**
  *
@@ -100,6 +98,13 @@ public class DomainAdapterMF extends DomainAdapter {
                     if (!request.decode(domainGUID, sGUID, buf, read)) {
                         continue;
                     }
+                    if (request.Name.startsWith("/")) {
+                        request.Name = request.Name.substring(1);
+                    }
+                    if (domainName.equals(CROSS_DOMAIN_HOST_MF)) {
+                        request.Name = String.format("%s/%s", domainGUID, request.Name);
+                    }
+
                     CanonicalRequest req;
                     if (HTTPUtility.HTTP_METHOD_STATIC.equals(request.Method)) {
                         req = new CanonicalRequestStatic(domainName, request.Name, request.Exclude, DomainAdapterMF.this);
@@ -120,11 +125,29 @@ public class DomainAdapterMF extends DomainAdapter {
                             raiseRequest(req);
                         }
                     } else if (HTTPUtility.HTTP_METHOD_DYNAMIC.equals(request.Method)) {
-//                        req = new CanonicalRequestDynamic(domainName, demux, domainName, buf, handler)
+                        req = new CanonicalRequestDynamic(domainName, new DemultiplexingEntityMFDynamic(sGUID, request.RequestID), request.Name, request.Body, DomainAdapterMF.this);
+                        DemultiplexingEntity demux = req.getDemux();
+                        ResponseHandler handler;
+                        synchronized (pendingRequests) {
+                            handler = pendingRequests.get(demux);
+                            if (handler == null) {
+                                pendingRequests.put(demux, handler = new ResponseHandler());
+                                handler.addClient(new ClientIdentifier(domainGUID, handle, sGUID, request.RequestID));
+                                LOG.log(Level.INFO, String.format("[%,d] Got canonical request: %s, need raise: %b", System.nanoTime(), req, true));
+                                raiseRequest(req);
+                            } else {
+                                // should not reach here, dynamic request should have no pending interests
+                                try {
+                                    LOG.log(Level.SEVERE, String.format("[%,d] Having duplicate demux %s for dynamic request", System.nanoTime(), demux));
+                                    writeBody(handle, sGUID, request.RequestID, HttpURLConnection.HTTP_INTERNAL_ERROR, System.currentTimeMillis(), String.format(HTTPUtility.HTTP_RESPONSE_FAIL_IN_PROCESS, "Having duplicate demux for dynamic request", demux).getBytes(), 0);
+                                } catch (Exception ex2) {
+                                    LOG.log(Level.SEVERE, String.format("[%,d] Error in writing 500 to client %s %d", System.nanoTime(), sGUID, request.RequestID), ex2);
+                                }
+                            }
+                        }
                     } else {
                         LOG.log(Level.INFO, String.format("[%,d] (me:%s, client:%s, reqid:%d) Method (%s) not correct in request", System.nanoTime(), domainGUID, sGUID, request.RequestID, request.Method));
                         writeBody(handle, sGUID, request.RequestID, HttpURLConnection.HTTP_NOT_IMPLEMENTED, System.currentTimeMillis(), String.format(HTTPUtility.HTTP_RESPONSE_UNSUPPORTED_ACTION_FORMAT, request.Method).getBytes(), 0);
-                        continue;
                     }
                 }
             } catch (JMFException ex) {
@@ -197,10 +220,12 @@ public class DomainAdapterMF extends DomainAdapter {
 
         public void writeNotModified() throws JMFException {
             DomainAdapterMF.writeBody(Handle, ClientGUID, ClientRequestID, HttpURLConnection.HTTP_NOT_MODIFIED, System.currentTimeMillis(), null, 0);
+            LOG.log(Level.INFO, String.format("[%,d] Wrote Not Modified to %s", System.nanoTime(), this));
         }
 
         public void writeBody(byte[] buf, int size, Long time) throws JMFException {
             DomainAdapterMF.writeBody(Handle, ClientGUID, ClientRequestID, HttpURLConnection.HTTP_OK, time, buf, size);
+            LOG.log(Level.INFO, String.format("[%,d] Wrote response to %s", System.nanoTime(), this));
         }
 
     }
@@ -224,7 +249,6 @@ public class DomainAdapterMF extends DomainAdapter {
             pendingClients.forEach((pendingClient) -> {
                 try {
                     pendingClient.writeNotModified();
-                    LOG.log(Level.INFO, String.format("[%,d] Wrote Not Modified to %s", System.nanoTime(), pendingClient));
                 } catch (Exception ex) {
                     LOG.log(Level.SEVERE, String.format("[%,d] Error in writing response to %s", System.nanoTime(), pendingClient), ex);
                 }
@@ -256,7 +280,6 @@ public class DomainAdapterMF extends DomainAdapter {
             pendingClients.forEach((pendingClient) -> {
                 try {
                     pendingClient.writeBody(buf, responseSize, time);
-                    LOG.log(Level.INFO, String.format("[%,d] Wrote response to %s", System.nanoTime(), pendingClient));
                 } catch (Exception ex) {
                     LOG.log(Level.SEVERE, String.format("[%,d] Error in writing response to %s", System.nanoTime(), pendingClient), ex);
                 }

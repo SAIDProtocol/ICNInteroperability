@@ -26,7 +26,7 @@ import java.util.logging.Logger;
 public class MFUtility {
 
     public static final String CROSS_DOMAIN_HOST_MF = "INTR_MF";
-    public static final int MAX_BUF_SIZE = 8 * 1024 * 1024;
+    public static final int MAX_BUF_SIZE = 5 * 1024 * 1024;
     public static final HashMap<String, Integer> DOMAIN_MAPPING_TABLE = new HashMap<>();
     private static final Logger LOG = Logger.getLogger(MFUtility.class.getName());
 
