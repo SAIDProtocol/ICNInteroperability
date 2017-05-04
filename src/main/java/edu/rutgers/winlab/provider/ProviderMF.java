@@ -6,17 +6,23 @@
 package edu.rutgers.winlab.provider;
 
 import edu.rutgers.winlab.common.HTTPUtility;
+import static edu.rutgers.winlab.common.HTTPUtility.HTTP_DATE_FORMAT;
+import static edu.rutgers.winlab.common.HTTPUtility.parseQuery;
 import edu.rutgers.winlab.common.MFUtility;
 import edu.rutgers.winlab.jmfapi.GUID;
 import edu.rutgers.winlab.jmfapi.JMFAPI;
 import edu.rutgers.winlab.jmfapi.JMFException;
+import static edu.rutgers.winlab.provider.ProviderIP.SLEEP_PARAM_NAME;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileReader;
 import java.io.IOException;
 import java.net.HttpURLConnection;
+import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -29,9 +35,10 @@ public class ProviderMF {
     private static final Logger LOG = Logger.getLogger(ProviderMF.class.getName());
     private final int staticFileWaitTime;
     private boolean started = false;
-    private final HashMap<Integer, StaticFileHandler> handlers = new HashMap<>();
+    private final HashMap<Integer, MFHandler> handlers = new HashMap<>();
 
-    public ProviderMF(String mapping, int staticFileWaitTime) throws JMFException, IOException {
+    public ProviderMF(String mapping, int staticFileWaitTime, int dynamicGUID) throws JMFException, IOException {
+        handlers.put(dynamicGUID, new DynamicGUIDHandler(dynamicGUID));
         this.staticFileWaitTime = staticFileWaitTime;
         try (BufferedReader reader = new BufferedReader(new FileReader(mapping))) {
             String line;
@@ -74,21 +81,19 @@ public class ProviderMF {
         handlers.values().forEach(h -> new Thread(h).start());
     }
 
-    private class StaticFileHandler implements Runnable {
+    private abstract class MFHandler implements Runnable {
 
-        private final File file;
-        private final GUID guid;
-        private final JMFAPI handle;
+        protected final GUID guid;
+        protected final JMFAPI handle;
         private final byte[] buf = new byte[MFUtility.MAX_BUF_SIZE];
 
-        public StaticFileHandler(String file, int guid) throws JMFException {
-            this.file = new File(file);
-            this.guid = new GUID(guid);
+        public MFHandler(GUID guid) throws JMFException {
+            this.guid = guid;
             handle = new JMFAPI();
             handle.jmfopen("basic", this.guid);
         }
 
-        private void writeBody(GUID dstGUID, long reqID, int status, long time, byte[] payload) {
+        protected void writeBody(GUID dstGUID, long reqID, int status, long time, byte[] payload) {
             MFUtility.MFResponse resp = new MFUtility.MFResponse();
             resp.RequestID = reqID;
             resp.StatusCode = status;
@@ -114,61 +119,127 @@ public class ProviderMF {
                     if (!request.decode(guid, sGUID, buf, read)) {
                         continue;
                     }
-                    if (request.Method == null || !request.Method.equals(HTTPUtility.HTTP_METHOD_STATIC)) {
+                    if (request.Method == null) {
                         LOG.log(Level.INFO, String.format("[%,d] (content:%s, client:%s, reqid:%d) Method (%s) not correct in request", System.nanoTime(), guid, sGUID, request.RequestID, request.Method));
                         writeBody(sGUID, request.RequestID, HttpURLConnection.HTTP_NOT_IMPLEMENTED, System.currentTimeMillis(), String.format(HTTPUtility.HTTP_RESPONSE_UNSUPPORTED_ACTION_FORMAT, request.Method).getBytes());
                         continue;
                     }
-                    LOG.log(Level.INFO, String.format("[%,d] (content:%s, client:%s, reqid:%d) Got name: %s. Ignore.", System.nanoTime(), guid, sGUID, request.RequestID, request.Name));
-                    LOG.log(Level.INFO, String.format("[%,d] (content:%s, client:%s, reqid:%d) STATIC exclude=%d", System.nanoTime(), guid, sGUID, request.RequestID, request.Exclude));
-                    
-                    if (staticFileWaitTime > 0) {
-                        try {
-                            Thread.sleep(staticFileWaitTime);
-                        } catch (InterruptedException ex) {
-                            Logger.getLogger(ProviderMF.class.getName()).log(Level.SEVERE, null, ex);
-                        }
-                    }
-                    if (!file.isFile()) {
-                        LOG.log(Level.INFO, String.format("(content:%s, client:%s, reqid:%d) File %s not exist", System.nanoTime(), guid, sGUID, request.RequestID, file));
-                        writeBody(sGUID, request.RequestID, HttpURLConnection.HTTP_NOT_FOUND, System.currentTimeMillis(), String.format(HTTPUtility.HTTP_RESPONSE_FILE_NOT_FOUND_FORMAT, guid).getBytes());
-                        continue;
-                    }
-                    long lastModified = file.lastModified();
-                    // round the time to the next second
-                    lastModified = lastModified / 1000 * 1000 + ((lastModified % 1000 == 0) ? 0 : 1000);
+                    handleRequest(request, sGUID);
 
-                    if (request.Exclude != null && request.Exclude >= lastModified) {
-                        LOG.log(Level.INFO, String.format("[%,d] (content:%s, client:%s, reqid:%d) File not modified write 304", System.nanoTime(), guid, sGUID, request.RequestID));
-                        writeBody(sGUID, request.RequestID, HttpURLConnection.HTTP_NOT_MODIFIED, System.currentTimeMillis(), null);
-                        continue;
-                    }
-                    byte[] body = new byte[(int) Math.min(file.length(), MFUtility.MAX_BUF_SIZE)];
-                    try (FileInputStream fis = new FileInputStream(file)) {
-                        fis.read(body);
-                    } catch (IOException ex) {
-                        Logger.getLogger(ProviderMF.class.getName()).log(Level.SEVERE, null, ex);
-                        writeBody(sGUID, request.RequestID, HttpURLConnection.HTTP_NOT_FOUND, System.currentTimeMillis(), String.format(HTTPUtility.HTTP_RESPONSE_FILE_NOT_FOUND_FORMAT, guid).getBytes());
-                        continue;
-                    }
-                    writeBody(sGUID, request.RequestID, HttpURLConnection.HTTP_OK, lastModified, body);
                 }
             } catch (JMFException ex) {
                 LOG.log(Level.SEVERE, String.format("[%,d] Error in reading content from JMFAPI, contentGUID:%s, exitting", System.nanoTime(), guid), ex);
             }
         }
 
+        public abstract void handleRequest(MFUtility.MFRequest request, GUID sGUID);
+
+    }
+
+    private class StaticFileHandler extends MFHandler {
+
+        private final File file;
+
+        public StaticFileHandler(String file, int guid) throws JMFException {
+            super(new GUID(guid));
+            this.file = new File(file);
+        }
+
+        @Override
+        public void handleRequest(MFUtility.MFRequest request, GUID sGUID) {
+            if (!HTTPUtility.HTTP_METHOD_STATIC.equals(request.Method)) {
+                LOG.log(Level.INFO, String.format("[%,d] (content:%s, client:%s, reqid:%d) Method (%s) not correct in request", System.nanoTime(), guid, sGUID, request.RequestID, request.Method));
+                writeBody(sGUID, request.RequestID, HttpURLConnection.HTTP_NOT_IMPLEMENTED, System.currentTimeMillis(), String.format(HTTPUtility.HTTP_RESPONSE_UNSUPPORTED_ACTION_FORMAT, request.Method).getBytes());
+                return;
+            }
+            LOG.log(Level.INFO, String.format("[%,d] (content:%s, client:%s, reqid:%d) Got name: %s. Ignore.", System.nanoTime(), guid, sGUID, request.RequestID, request.Name));
+            LOG.log(Level.INFO, String.format("[%,d] (content:%s, client:%s, reqid:%d) STATIC exclude=%d", System.nanoTime(), guid, sGUID, request.RequestID, request.Exclude));
+            if (staticFileWaitTime > 0) {
+                try {
+                    Thread.sleep(staticFileWaitTime);
+                } catch (InterruptedException ex) {
+                    Logger.getLogger(ProviderMF.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+            if (!file.isFile()) {
+                LOG.log(Level.INFO, String.format("(content:%s, client:%s, reqid:%d) File %s not exist", System.nanoTime(), guid, sGUID, request.RequestID, file));
+                writeBody(sGUID, request.RequestID, HttpURLConnection.HTTP_NOT_FOUND, System.currentTimeMillis(), String.format(HTTPUtility.HTTP_RESPONSE_FILE_NOT_FOUND_FORMAT, guid).getBytes());
+                return;
+            }
+            long lastModified = file.lastModified();
+            // round the time to the next second
+            lastModified = lastModified / 1000 * 1000 + ((lastModified % 1000 == 0) ? 0 : 1000);
+
+            if (request.Exclude != null && request.Exclude >= lastModified) {
+                LOG.log(Level.INFO, String.format("[%,d] (content:%s, client:%s, reqid:%d) File not modified write 304", System.nanoTime(), guid, sGUID, request.RequestID));
+                writeBody(sGUID, request.RequestID, HttpURLConnection.HTTP_NOT_MODIFIED, System.currentTimeMillis(), null);
+                return;
+            }
+            byte[] body = new byte[(int) Math.min(file.length(), MFUtility.MAX_BUF_SIZE)];
+            try (FileInputStream fis = new FileInputStream(file)) {
+                fis.read(body);
+            } catch (IOException ex) {
+                Logger.getLogger(ProviderMF.class.getName()).log(Level.SEVERE, null, ex);
+                writeBody(sGUID, request.RequestID, HttpURLConnection.HTTP_NOT_FOUND, System.currentTimeMillis(), String.format(HTTPUtility.HTTP_RESPONSE_FILE_NOT_FOUND_FORMAT, guid).getBytes());
+                return;
+            }
+            writeBody(sGUID, request.RequestID, HttpURLConnection.HTTP_OK, lastModified, body);
+        }
+
+    }
+
+    private class DynamicGUIDHandler extends MFHandler {
+
+        public DynamicGUIDHandler(int guid) throws JMFException {
+            super(new GUID(guid));
+        }
+
+        @Override
+        public void handleRequest(MFUtility.MFRequest request, GUID sGUID) {
+            if (!HTTPUtility.HTTP_METHOD_DYNAMIC.equals(request.Method)) {
+                LOG.log(Level.INFO, String.format("[%,d] (content:%s, client:%s, reqid:%d) Method (%s) not correct in request", System.nanoTime(), guid, sGUID, request.RequestID, request.Method));
+                writeBody(sGUID, request.RequestID, HttpURLConnection.HTTP_NOT_IMPLEMENTED, System.currentTimeMillis(), String.format(HTTPUtility.HTTP_RESPONSE_UNSUPPORTED_ACTION_FORMAT, request.Method).getBytes());
+                return;
+            }
+            LOG.log(Level.INFO, String.format("[%,d] (content:%s, client:%s, reqid:%d) Got name: %s.", System.nanoTime(), guid, sGUID, request.RequestID, request.Name));
+            LOG.log(Level.INFO, String.format("[%,d] (content:%s, client:%s, reqid:%d) DYNAMIC input.len%d", System.nanoTime(), guid, sGUID, request.RequestID, request.Body == null ? 0 : request.Body.length));
+
+            String queryString = new String(request.Body);
+            LOG.log(Level.INFO, String.format("[%,d] request body: %s", System.nanoTime(), queryString));
+            Map<String, List<String>> parameters = new HashMap<>();
+            parseQuery(queryString, parameters);
+
+            int sleepLen = 0;
+            try {
+                sleepLen = Integer.parseInt(parameters.get(SLEEP_PARAM_NAME).get(0));
+            } catch (Exception e) {
+            }
+            if (sleepLen > 0) {
+                try {
+                    Thread.sleep(sleepLen);
+                } catch (InterruptedException ex) {
+                    Logger.getLogger(ProviderMF.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+
+            byte[] result = String.format("This is a simple response from MF provider!%nMy Time: %s%nYou are: %s%nInput: %s%nName: %s%nBye!%n",
+                    HTTP_DATE_FORMAT.format(new Date()), sGUID, queryString, request.Name).getBytes();
+            writeBody(sGUID, request.RequestID, HttpURLConnection.HTTP_OK, System.currentTimeMillis(), result);
+
+        }
+
     }
 
     public static void main(String[] args) throws JMFException, IOException {
-        if (args.length < 2) {
-            System.out.printf("Usage: java %s <mapping> <wait>%n", ProviderIP.class.getName());
+        if (args.length < 3) {
+            System.out.printf("Usage: java %s <mapping> <wait> <dynamicGUID>%n", ProviderIP.class.getName());
             return;
         }
         String mapping = args[0];
         int wait = Integer.parseInt(args[1]);
-        System.out.printf("Starting MF Provider mapping file %s, static file wait time %d%n", mapping, wait);
-        ProviderMF p = new ProviderMF(mapping, wait);
+        int guid = Integer.parseInt(args[2]);
+        System.out.printf("Starting MF Provider mapping file %s, static file wait time %d, dynamic guid %d%n", mapping, wait, guid);
+        ProviderMF p = new ProviderMF(mapping, wait, guid);
         p.start();
     }
 }

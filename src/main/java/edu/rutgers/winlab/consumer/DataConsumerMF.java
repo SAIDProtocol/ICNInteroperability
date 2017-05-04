@@ -6,6 +6,7 @@
 package edu.rutgers.winlab.consumer;
 
 import edu.rutgers.winlab.common.HTTPUtility;
+import static edu.rutgers.winlab.common.HTTPUtility.HTTP_METHOD_DYNAMIC;
 import static edu.rutgers.winlab.common.HTTPUtility.HTTP_METHOD_STATIC;
 import edu.rutgers.winlab.common.MFUtility;
 import static edu.rutgers.winlab.common.MFUtility.CROSS_DOMAIN_HOST_MF;
@@ -38,8 +39,21 @@ public class DataConsumerMF implements DataConsumer {
         handle.jmfopen("basic", myGUID);
     }
 
-    @Override
-    public Long requestStatic(CanonicalRequestStatic request) throws IOException {
+    private MFUtility.MFRequest getRequest(CanonicalRequest request, String name) {
+        MFUtility.MFRequest req = new MFUtility.MFRequest();
+        if (request instanceof CanonicalRequestStatic) {
+            req.Exclude = ((CanonicalRequestStatic) request).getExclude();
+            req.Method = HTTP_METHOD_STATIC;
+        } else if (request instanceof CanonicalRequestDynamic) {
+            req.Method = HTTP_METHOD_DYNAMIC;
+            req.Body = ((CanonicalRequestDynamic) request).getInput();
+        }
+        req.RequestID = System.currentTimeMillis();
+        req.Name = name;
+        return req;
+    }
+
+    private Long handleRequest(CanonicalRequest request) throws IOException {
         LOG.log(Level.INFO, String.format("Request: %s", request));
         String domain = request.getDestDomain(), name = request.getTargetName();
         if (name.startsWith("/")) {
@@ -58,18 +72,13 @@ public class DataConsumerMF implements DataConsumer {
         } else {
             dstGUID = DOMAIN_MAPPING_TABLE.get(domain);
         }
-        MFUtility.MFRequest req = new MFUtility.MFRequest();
-        req.Exclude = request.getExclude();
-        req.RequestID = System.currentTimeMillis();
-        req.Method = HTTP_METHOD_STATIC;
-        req.Name = name;
+        MFUtility.MFRequest req = getRequest(request, name);
         byte[] buf = req.encode();
         try {
             handle.jmfsend(buf, buf.length, new GUID(dstGUID));
         } catch (JMFException ex) {
             throw new IOException("Error in sending MF request for " + request, ex);
         }
-
         GUID sGUID = new GUID();
         buf = new byte[MFUtility.MAX_BUF_SIZE];
         try {
@@ -96,24 +105,20 @@ public class DataConsumerMF implements DataConsumer {
                 }
                 return resp.LastModified;
             }
+            return 0L;
         } catch (JMFException ex) {
             throw new IOException("Error in reading MF response for " + request, ex);
         }
+    }
 
-//else {
-//            try {
-//                urlStr = String.format("http://%s%s/%s", domain, OUTGOING_GATEWAY_DOMAIN_SUFFIX, URLEncoder.encode(name, "UTF-8"));
-//            } catch (UnsupportedEncodingException ex) {
-//                LOG.log(Level.SEVERE, "Should not reach here, using UTF-8 encoding", ex);
-//            }
-//            host = domain;
-//        }
-        return 0L;
+    @Override
+    public Long requestStatic(CanonicalRequestStatic request) throws IOException {
+        return handleRequest(request);
     }
 
     @Override
     public Long requestDynamic(CanonicalRequestDynamic request) throws IOException {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        return handleRequest(request);
     }
 
 }
