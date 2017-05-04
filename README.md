@@ -30,6 +30,16 @@ java -classpath $EXECUTE edu.rutgers.winlab.provider.ProviderNDNDynamic %prefix%
 ```
 java -classpath $EXECUTE edu.rutgers.winlab.provider.CCNFileProxy %filePrefix% %ccnURI%
 ```
+#### MF provider
+```
+java -classpath $EXECUTE edu.rutgers.winlab.provider.ProviderMF %mapping% %wait_on_static%
+```
+A mapping file is needed. E.g.,
+```
+8193 key
+8194 test/testFile.txt
+```
+Each line represents a guid (and the corresponding file, separated by space)
 ### Consumer
 ```
 java -classpath $EXECUTE edu.rutgers.winlab.consumer.RunConsumer %output% static|dynamic %clientDomain% %clientName% %dstDomain% %name% [%version%|%input%]

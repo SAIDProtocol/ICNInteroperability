@@ -121,6 +121,14 @@ public class ProviderMF {
                     }
                     LOG.log(Level.INFO, String.format("[%,d] (content:%s, client:%s, reqid:%d) Got name: %s. Ignore.", System.nanoTime(), guid, sGUID, request.RequestID, request.Name));
                     LOG.log(Level.INFO, String.format("[%,d] (content:%s, client:%s, reqid:%d) STATIC exclude=%d", System.nanoTime(), guid, sGUID, request.RequestID, request.Exclude));
+                    
+                    if (staticFileWaitTime > 0) {
+                        try {
+                            Thread.sleep(staticFileWaitTime);
+                        } catch (InterruptedException ex) {
+                            Logger.getLogger(ProviderMF.class.getName()).log(Level.SEVERE, null, ex);
+                        }
+                    }
                     if (!file.isFile()) {
                         LOG.log(Level.INFO, String.format("(content:%s, client:%s, reqid:%d) File %s not exist", System.nanoTime(), guid, sGUID, request.RequestID, file));
                         writeBody(sGUID, request.RequestID, HttpURLConnection.HTTP_NOT_FOUND, System.currentTimeMillis(), String.format(HTTPUtility.HTTP_RESPONSE_FILE_NOT_FOUND_FORMAT, guid).getBytes());
