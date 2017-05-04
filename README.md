@@ -32,7 +32,7 @@ java -classpath $EXECUTE edu.rutgers.winlab.provider.CCNFileProxy %filePrefix% %
 ```
 #### MF provider
 ```
-java -classpath $EXECUTE edu.rutgers.winlab.provider.ProviderMF %mapping% %wait_on_static%
+java -classpath $EXECUTE edu.rutgers.winlab.provider.ProviderMF %mapping% %wait_on_static% %dynamicGUID%
 ```
 A mapping file is needed. E.g.,
 ```
