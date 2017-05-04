@@ -46,6 +46,9 @@ public class DomainAdapterMF extends DomainAdapter {
         this.senderGUID = new GUID(guid);
         senderHandle.jmfopen("basic", this.senderGUID);
         for (Map.Entry<String, Integer> entry : DOMAIN_MAPPING_TABLE.entrySet()) {
+            if (entry.getValue().equals(CROSS_DOMAIN_HOST_MF)) {
+                continue;
+            }
             guidListeners.put(entry.getValue(), new GUIDListenThread(entry.getValue(), entry.getKey()));
         }
     }
