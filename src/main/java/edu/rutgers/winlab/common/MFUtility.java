@@ -143,7 +143,7 @@ public class MFUtility {
                 return buf;
             }
             int toCopy = BodyLen == 0 ? Body.length : BodyLen;
-            toCopy = Math.min(BodyLen, Body.length);
+            toCopy = Math.min(toCopy, Body.length);
             byte[] ret = new byte[buf.length + toCopy];
             System.arraycopy(buf, 0, ret, 0, buf.length);
             System.arraycopy(Body, 0, ret, buf.length, toCopy);
