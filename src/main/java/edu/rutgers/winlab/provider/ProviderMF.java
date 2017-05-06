@@ -162,7 +162,7 @@ public class ProviderMF {
                 }
             }
             if (!file.isFile()) {
-                LOG.log(Level.INFO, String.format("(content:%s, client:%s, reqid:%d) File %s not exist", System.currentTimeMillis(), guid, sGUID, request.RequestID, file));
+                LOG.log(Level.INFO, String.format("[%,d] (content:%s, client:%s, reqid:%d) File %s not exist", System.currentTimeMillis(), guid, sGUID, request.RequestID, file));
                 writeBody(sGUID, request.RequestID, HttpURLConnection.HTTP_NOT_FOUND, System.currentTimeMillis(), String.format(HTTPUtility.HTTP_RESPONSE_FILE_NOT_FOUND_FORMAT, guid).getBytes());
                 return;
             }
