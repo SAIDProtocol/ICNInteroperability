@@ -47,7 +47,7 @@ public class RunConsumer {
             case CROSS_DOMAIN_HOST_MF:
                 return new DataConsumerMF(name);
             default:
-                System.err.printf("Cannot understand consumer type %s%n", type);
+                System.err.printf("[%,d] Cannot understand consumer type %s%n", System.currentTimeMillis(), type);
                 usage();
                 return null;
         }
@@ -60,7 +60,7 @@ public class RunConsumer {
             case CROSS_DOMAIN_HOST_MF:
                 break;
             default:
-                System.err.printf("Cannot understand dstDomain type %s%n", domain);
+                System.err.printf("[%,d] Cannot understand dstDomain type %s%n", System.currentTimeMillis(), domain);
                 usage();
                 return null;
         }
@@ -104,7 +104,7 @@ public class RunConsumer {
 
                     @Override
                     public void handleDataFailed(DemultiplexingEntity demux) {
-                        System.err.println("Handle data failed!!");
+                        System.err.printf("[%,d] Handle data failed!!", System.currentTimeMillis());
                     }
                 };
 
@@ -117,7 +117,7 @@ public class RunConsumer {
                     return;
                 }
                 Long version = consumer.request(request);
-                System.err.printf("Version is: %s (%d)%n", version == null ? null : HTTP_DATE_FORMAT.format(new Date(version)), version);
+                System.err.printf("[%,d] Version is: %s (%d)%n", System.currentTimeMillis(), version == null ? null : HTTP_DATE_FORMAT.format(new Date(version)), version);
 
                 os.flush();
             }

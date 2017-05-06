@@ -36,12 +36,17 @@ public class DataConsumerMF implements DataConsumer {
         myGUID = new GUID(Integer.parseInt(name));
         handle = new JMFAPI();
         handle.jmfopen("basic", myGUID);
+        System.err.printf("[%,d] Sleep 5 sec before request%n", System.currentTimeMillis());
+        try {
+            Thread.sleep(5000);
+        } catch (InterruptedException ex) {
+            Logger.getLogger(DataConsumerMF.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        System.err.printf("[%,d] Sleep finished%n", System.currentTimeMillis());
     }
 
-    
-
     private Long handleRequest(CanonicalRequest request) throws IOException {
-        LOG.log(Level.INFO, String.format("Request: %s", request));
+        LOG.log(Level.INFO, String.format("[%,d] Got Request: %s", System.currentTimeMillis(), request));
         String domain = request.getDestDomain(), name = request.getTargetName();
         if (name.startsWith("/")) {
             name = name.substring(1);
@@ -73,14 +78,15 @@ public class DataConsumerMF implements DataConsumer {
             while ((read = handle.jmfrecv_blk(sGUID, buf, buf.length)) > 0) {
                 MFUtility.MFResponse resp = new MFUtility.MFResponse();
                 if (!resp.decode(myGUID, sGUID, buf, read)) {
-                    System.err.println("Cannot understand header, skip");
+                    System.err.printf("[%,d] Cannot understand header, skip%n", System.currentTimeMillis());
                     continue;
                 }
                 if (!Objects.equals(resp.RequestID, req.RequestID)) {
-                    System.err.printf("Skipping, resp.reqID(%d)!=req.reqID(%d)%n", resp.RequestID, req.RequestID);
+                    System.err.printf("[%,d] Skipping, resp.reqID(%d)!=req.reqID(%d)%n", System.currentTimeMillis(), resp.RequestID, req.RequestID);
                     continue;
                 }
-                System.err.printf("reqID:%d status:%d  time:%s bodyLen:%d%n",
+                System.err.printf("[%,d] reqID:%d status:%d  time:%s bodyLen:%d%n",
+                        System.currentTimeMillis(),
                         resp.RequestID,
                         resp.StatusCode,
                         resp.LastModified == null ? null : HTTPUtility.HTTP_DATE_FORMAT.format(new Date(resp.LastModified)),
