@@ -57,10 +57,10 @@ public class DomainAdapterNDN extends DomainAdapter {
 
     private boolean handleInterest(Interest interest) {
         if (needSkip(interest.name())) {
-            LOG.log(Level.INFO, String.format("[%,d] Skip interest %s.", System.nanoTime(), interest));
+            LOG.log(Level.INFO, String.format("[%,d] Skip interest %s.", System.currentTimeMillis(), interest));
             return false;
         }
-        LOG.log(Level.INFO, String.format("[%,d] Got interest %s", System.nanoTime(), interest));
+        LOG.log(Level.INFO, String.format("[%,d] Got interest %s", System.currentTimeMillis(), interest));
 
         ContentName name = interest.name();
         String host = name.count() == 0 ? "" : new String(name.component(0));
@@ -71,7 +71,7 @@ public class DomainAdapterNDN extends DomainAdapter {
             name = name.subname(1, name.count());
         }
 
-        LOG.log(Level.INFO, String.format("[%,d] domain:%s, name:%s", System.nanoTime(), domain, name));
+        LOG.log(Level.INFO, String.format("[%,d] domain:%s, name:%s", System.currentTimeMillis(), domain, name));
 
         if (VersioningProfile.hasTerminalVersion(interest.name())) {
             return handleDynamicRequest(interest, domain, name);
@@ -88,7 +88,7 @@ public class DomainAdapterNDN extends DomainAdapter {
         if (url.startsWith("/")) {
             url = url.substring(1);
         }
-        LOG.log(Level.INFO, String.format("[%,d] domain:%s, name:%s, exclude: %d (%s)", System.nanoTime(), domain, url, exclude, d));
+        LOG.log(Level.INFO, String.format("[%,d] domain:%s, name:%s, exclude: %d (%s)", System.currentTimeMillis(), domain, url, exclude, d));
         CanonicalRequestStatic req = new CanonicalRequestStatic(domain, url, exclude, this);
         DemultiplexingEntity demux = req.getDemux();
 
@@ -103,7 +103,7 @@ public class DomainAdapterNDN extends DomainAdapter {
             }
             handler.addClient(interest);
         }
-        LOG.log(Level.INFO, String.format("[%,d] Got canonical request: %s, need raise: %b", System.nanoTime(), req, needRaise));
+        LOG.log(Level.INFO, String.format("[%,d] Got canonical request: %s, need raise: %b", System.currentTimeMillis(), req, needRaise));
         if (needRaise) {
             raiseRequest(req);
         }
@@ -116,7 +116,7 @@ public class DomainAdapterNDN extends DomainAdapter {
         long time = VersioningProfile.getVersionComponentAsTimestamp(t.second()).getTime();
 
         if (name.count() < 3) {
-            LOG.log(Level.INFO, String.format("[%,d] Name %s does not satisfy requirement count < 3. Skip.", System.nanoTime(), name));
+            LOG.log(Level.INFO, String.format("[%,d] Name %s does not satisfy requirement count < 3. Skip.", System.currentTimeMillis(), name));
         }
 
         String clientName = Component.printNative(name.component(name.count() - 1));
@@ -126,7 +126,7 @@ public class DomainAdapterNDN extends DomainAdapter {
         try {
             requestBody = Component.parseURI(request);
         } catch (Component.DotDot | URISyntaxException ex) {
-            LOG.log(Level.SEVERE, String.format("[%,d] Error in parsing the request body: %s", System.nanoTime(), request), ex);
+            LOG.log(Level.SEVERE, String.format("[%,d] Error in parsing the request body: %s", System.currentTimeMillis(), request), ex);
             return false;
         }
         name = name.parent();
@@ -135,7 +135,7 @@ public class DomainAdapterNDN extends DomainAdapter {
         if (url.startsWith("/")) {
             url = url.substring(1);
         }
-        LOG.log(Level.INFO, String.format("[%,d] time=%s, client=%s, requestLen=%d, name=%s", System.nanoTime(), new Date(time), clientName, requestBody.length, url));
+        LOG.log(Level.INFO, String.format("[%,d] time=%s, client=%s, requestLen=%d, name=%s", System.currentTimeMillis(), new Date(time), clientName, requestBody.length, url));
         CanonicalRequestDynamic req = new CanonicalRequestDynamic(domain, new DemultiplexingEntityNDNDynamic(clientName, time), url, requestBody, this);
 
         ResponseHandler handler;
@@ -145,11 +145,11 @@ public class DomainAdapterNDN extends DomainAdapter {
             if (handler == null) {
                 pendingRequests.put(demux, handler = new ResponseHandler());
                 handler.addClient(interest);
-                LOG.log(Level.INFO, String.format("[%,d] Got canonical request: %s, need raise: %b", System.nanoTime(), req, true));
+                LOG.log(Level.INFO, String.format("[%,d] Got canonical request: %s, need raise: %b", System.currentTimeMillis(), req, true));
                 raiseRequest(req);
             } else {
                 // should not reach here, dynamic request should have no pending interests
-                LOG.log(Level.SEVERE, String.format("[%,d] Having duplicate demux %s for dynamic request", System.nanoTime(), demux));
+                LOG.log(Level.SEVERE, String.format("[%,d] Having duplicate demux %s for dynamic request", System.currentTimeMillis(), demux));
                 return false;
             }
         }
@@ -172,7 +172,7 @@ public class DomainAdapterNDN extends DomainAdapter {
             try {
                 handler.addData(data, size, time, finished);
             } catch (Exception ex) {
-                LOG.log(Level.SEVERE, String.format("[%,d] Error in writing data to %s", System.nanoTime(), demux), ex);
+                LOG.log(Level.SEVERE, String.format("[%,d] Error in writing data to %s", System.currentTimeMillis(), demux), ex);
             }
         }
     }
@@ -203,13 +203,13 @@ public class DomainAdapterNDN extends DomainAdapter {
                         cos.write(pendingResponse.toByteArray());
                     }
                 } catch (Exception e) {
-                    LOG.log(Level.WARNING, String.format("[%,d] Error in creating output for %s", System.nanoTime(), request), e);
+                    LOG.log(Level.WARNING, String.format("[%,d] Error in creating output for %s", System.currentTimeMillis(), request), e);
                 }
             } else if (time != null) {
                 try {
                     cos = createOutputStreamForInterest(request);
                 } catch (Exception e) {
-                    LOG.log(Level.WARNING, String.format("[%,d] Error in creating output for %s", System.nanoTime(), request), e);
+                    LOG.log(Level.WARNING, String.format("[%,d] Error in creating output for %s", System.currentTimeMillis(), request), e);
                 }
             }
             pendingClients.put(request, new CCNOutputStream[]{cos});
@@ -235,13 +235,13 @@ public class DomainAdapterNDN extends DomainAdapter {
             responseFinished = true;
             pendingClients.entrySet().forEach((pendingClient) -> {
                 try {
-                    LOG.log(Level.INFO, String.format("[%,d] Skipped and closed %s due to failure", System.nanoTime(), pendingClient.getKey()));
+                    LOG.log(Level.INFO, String.format("[%,d] Skipped and closed %s due to failure", System.currentTimeMillis(), pendingClient.getKey()));
                     CCNOutputStream cos = pendingClient.getValue()[0];
                     if (cos != null) {
                         cos.close();
                     }
                 } catch (Exception e) {
-                    LOG.log(Level.WARNING, String.format("[%,d] Error in closing output for %s", System.nanoTime(), pendingClient.getKey()), e);
+                    LOG.log(Level.WARNING, String.format("[%,d] Error in closing output for %s", System.currentTimeMillis(), pendingClient.getKey()), e);
                 }
             });
         }
@@ -254,7 +254,7 @@ public class DomainAdapterNDN extends DomainAdapter {
                 if (this.time == null) {
                     this.time = time;
                 } else if (!Objects.equals(time, this.time)) {
-                    LOG.log(Level.WARNING, String.format("[%,d] New time (%d) not equal to prev time (%d), set to the new time", System.nanoTime(), time, this.time));
+                    LOG.log(Level.WARNING, String.format("[%,d] New time (%d) not equal to prev time (%d), set to the new time", System.currentTimeMillis(), time, this.time));
                     this.time = time;
                 }
             }
@@ -265,7 +265,7 @@ public class DomainAdapterNDN extends DomainAdapter {
                         try {
                             cos[0] = createOutputStreamForInterest(pair.getKey());
                         } catch (IOException ex) {
-                            LOG.log(Level.WARNING, String.format("[%,d] Error in creating output for %s", System.nanoTime(), pair.getKey()), ex);
+                            LOG.log(Level.WARNING, String.format("[%,d] Error in creating output for %s", System.currentTimeMillis(), pair.getKey()), ex);
                         }
                     }
                 }
@@ -277,7 +277,7 @@ public class DomainAdapterNDN extends DomainAdapter {
                             cos[0].close();
                         }
                     } catch (IOException ex) {
-                        LOG.log(Level.WARNING, String.format("[%,d] Error in writing data for %s", System.nanoTime(), pair.getKey()), ex);
+                        LOG.log(Level.WARNING, String.format("[%,d] Error in writing data for %s", System.currentTimeMillis(), pair.getKey()), ex);
                     }
                 }
             });
@@ -294,7 +294,7 @@ public class DomainAdapterNDN extends DomainAdapter {
 
     @Override
     public void sendDomainRequest(CanonicalRequest request) {
-        LOG.log(Level.INFO, String.format("[%,d] Got domain request for %s", System.nanoTime(), request));
+        LOG.log(Level.INFO, String.format("[%,d] Got domain request for %s", System.currentTimeMillis(), request));
         DemultiplexingEntity demux = request.getDemux();
 
         NDNRequestHandler handler;
@@ -347,7 +347,7 @@ public class DomainAdapterNDN extends DomainAdapter {
 
         @Override
         public void run() {
-            LOG.log(Level.INFO, String.format("[%,d] Start request for %s", System.nanoTime(), firstRequest.getDemux()));
+            LOG.log(Level.INFO, String.format("[%,d] Start request for %s", System.currentTimeMillis(), firstRequest.getDemux()));
 
             String domain = firstRequest.getDestDomain(), name = firstRequest.getTargetName();
             ContentName contentName;
@@ -357,18 +357,18 @@ public class DomainAdapterNDN extends DomainAdapter {
                 } else {
                     contentName = ContentName.fromNative(String.format("/%s/%s", domain, name));
                 }
-                LOG.log(Level.INFO, String.format("[%,d] Created ContentName %s for demux:%s", System.nanoTime(), contentName, firstRequest.getDemux()));
+                LOG.log(Level.INFO, String.format("[%,d] Created ContentName %s for demux:%s", System.currentTimeMillis(), contentName, firstRequest.getDemux()));
 
                 if (firstRequest instanceof CanonicalRequestStatic) {
                     requestStaticData(firstRequest.getDemux(), ((CanonicalRequestStatic) firstRequest).getExclude(), contentName);
                 } else if (firstRequest instanceof CanonicalRequestDynamic) {
                     requestDynamicData(firstRequest.getDemux(), ((CanonicalRequestDynamic) firstRequest).getInput(), contentName);
                 } else {
-                    LOG.log(Level.INFO, String.format("[%,d] Unknown request type %s, return failure", System.nanoTime(), firstRequest));
+                    LOG.log(Level.INFO, String.format("[%,d] Unknown request type %s, return failure", System.currentTimeMillis(), firstRequest));
                     handlers.forEach(h -> h.handleDataFailed(firstRequest.getDemux()));
                 }
             } catch (MalformedContentNameStringException ex) {
-                LOG.log(Level.SEVERE, String.format("[%,d] Cannot create ContentName for demux:%s", System.nanoTime(), firstRequest.getDemux()), ex);
+                LOG.log(Level.SEVERE, String.format("[%,d] Cannot create ContentName for demux:%s", System.currentTimeMillis(), firstRequest.getDemux()), ex);
                 handlers.forEach(h -> h.handleDataFailed(firstRequest.getDemux()));
             }
 
@@ -384,7 +384,7 @@ public class DomainAdapterNDN extends DomainAdapter {
                 }
             }
             handlers.forEach(h -> h.handleDataRetrieved(demux, buf, 0, responseTime, true));
-            LOG.log(Level.INFO, String.format("[%,d] Finished getting content demux:%s", System.nanoTime(), demux));
+            LOG.log(Level.INFO, String.format("[%,d] Finished getting content demux:%s", System.currentTimeMillis(), demux));
         }
 
         private void requestDynamicData(DemultiplexingEntity demux, byte[] input, ContentName base) {
@@ -394,13 +394,13 @@ public class DomainAdapterNDN extends DomainAdapter {
                 responseTime = time / 1000 * 1000 + ((time % 1000 == 0) ? 0 : 1000);
                 CCNTime version = new CCNTime(time);
                 ContentName contentName = new ContentName(base, inputStr, getName(), version);
-                LOG.log(Level.INFO, String.format("[%,d] Created ContentName %s for demux:%s", System.nanoTime(), contentName, demux));
+                LOG.log(Level.INFO, String.format("[%,d] Created ContentName %s for demux:%s", System.currentTimeMillis(), contentName, demux));
 
                 try (CCNInputStream cis = new CCNInputStream(contentName, handle)) {
                     forwardResponse(demux, cis);
                 }
             } catch (IOException | RuntimeException ex) {
-                LOG.log(Level.SEVERE, String.format("[%,d] Error in retrieving content in NDN demux:%s Name:%s", System.nanoTime(), demux, base), ex);
+                LOG.log(Level.SEVERE, String.format("[%,d] Error in retrieving content in NDN demux:%s Name:%s", System.currentTimeMillis(), demux, base), ex);
                 handlers.forEach(h -> h.handleDataFailed(firstRequest.getDemux()));
             }
         }
@@ -414,16 +414,16 @@ public class DomainAdapterNDN extends DomainAdapter {
 
                 ContentObject obj = VersioningProfile.getFirstBlockOfLatestVersion(base, null, null, SystemConfiguration.LONG_TIMEOUT, null, handle);
                 if (obj == null) {
-                    LOG.log(Level.SEVERE, String.format("[%,d] Cannot find content in NDN demux:%s Name:%s", System.nanoTime(), demux, base));
+                    LOG.log(Level.SEVERE, String.format("[%,d] Cannot find content in NDN demux:%s Name:%s", System.currentTimeMillis(), demux, base));
                     handlers.forEach(h -> h.handleDataFailed(firstRequest.getDemux()));
                     return;
                 }
                 long version = responseTime = VersioningProfile.getLastVersionAsTimestamp(obj.name()).getTime();
                 // round the time to the next second
                 responseTime = responseTime / 1000 * 1000 + ((responseTime % 1000 == 0) ? 0 : 1000);
-                LOG.log(Level.INFO, String.format("[%,d] Got first chunk of latest version for demux:%s, name=%s, version=0x%x exclude=0x%x", System.nanoTime(), demux, obj.name(), version, exclude));
+                LOG.log(Level.INFO, String.format("[%,d] Got first chunk of latest version for demux:%s, name=%s, version=0x%x exclude=0x%x", System.currentTimeMillis(), demux, obj.name(), version, exclude));
                 if (exclude != null && version <= exclude) {
-                    LOG.log(Level.INFO, String.format("[%,d] for demux:%s, latest version %d <= exclude %d, return failure", System.nanoTime(), demux, version, exclude));
+                    LOG.log(Level.INFO, String.format("[%,d] for demux:%s, latest version %d <= exclude %d, return failure", System.currentTimeMillis(), demux, version, exclude));
                     handlers.forEach(h -> h.handleDataFailed(firstRequest.getDemux()));
                     return;
                 }
@@ -431,7 +431,7 @@ public class DomainAdapterNDN extends DomainAdapter {
                     forwardResponse(demux, cis);
                 }
             } catch (IOException | VersionMissingException | RuntimeException ex) {
-                LOG.log(Level.SEVERE, String.format("[%,d] Error in retrieving content in NDN demux:%s Name:%s", System.nanoTime(), demux, base), ex);
+                LOG.log(Level.SEVERE, String.format("[%,d] Error in retrieving content in NDN demux:%s Name:%s", System.currentTimeMillis(), demux, base), ex);
                 handlers.forEach(h -> h.handleDataFailed(firstRequest.getDemux()));
             }
 

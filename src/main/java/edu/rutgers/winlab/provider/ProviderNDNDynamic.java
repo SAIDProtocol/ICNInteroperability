@@ -48,11 +48,11 @@ public class ProviderNDNDynamic {
 
     private boolean handleInterest(Interest interest) {
         if (needSkip(interest.name())) {
-            LOG.log(Level.INFO, String.format("[%,d] Got interest %s, but we do not handle it.", System.nanoTime(), interest));
+            LOG.log(Level.INFO, String.format("[%,d] Got interest %s, but we do not handle it.", System.currentTimeMillis(), interest));
             return false;
         }
         if (!hasTerminalVersion(interest.name())) {
-            LOG.log(Level.INFO, String.format("[%,d] Got interest %s, static request. We do not handle it.", System.nanoTime(), interest));
+            LOG.log(Level.INFO, String.format("[%,d] Got interest %s, static request. We do not handle it.", System.currentTimeMillis(), interest));
             return false;
         }
 
@@ -61,7 +61,7 @@ public class ProviderNDNDynamic {
             name = segmentRoot(name);
         }
         if (name.count() < 3) {
-            LOG.log(Level.INFO, String.format("[%,d] Name %s does not satisfy requirement count < 3. Skip.", System.nanoTime(), name));
+            LOG.log(Level.INFO, String.format("[%,d] Name %s does not satisfy requirement count < 3. Skip.", System.currentTimeMillis(), name));
             return false;
         }
 
@@ -69,7 +69,7 @@ public class ProviderNDNDynamic {
         try {
             time = getLastVersionAsTimestamp(name).getTime();
         } catch (VersionMissingException ex) {
-            LOG.log(Level.SEVERE, String.format("[%,d] Should not reach here. I've already checked that it has version!.", System.nanoTime()), ex);
+            LOG.log(Level.SEVERE, String.format("[%,d] Should not reach here. I've already checked that it has version!.", System.currentTimeMillis()), ex);
             return false;
         }
         name = name.parent();
@@ -81,7 +81,7 @@ public class ProviderNDNDynamic {
         try {
             requestBody = Component.parseURI(request);
         } catch (Component.DotDot | URISyntaxException ex) {
-            LOG.log(Level.SEVERE, String.format("[%,d] Error in parsing the request body: %s", System.nanoTime(), request), ex);
+            LOG.log(Level.SEVERE, String.format("[%,d] Error in parsing the request body: %s", System.currentTimeMillis(), request), ex);
             return false;
         }
         request = new String(requestBody);
@@ -110,10 +110,10 @@ public class ProviderNDNDynamic {
             cos.addOutstandingInterest(interest);
             cos.write(response);
             cos.flush();
-            LOG.log(Level.INFO, String.format("[%,d] Response sent.", System.nanoTime()));
+            LOG.log(Level.INFO, String.format("[%,d] Response sent.", System.currentTimeMillis()));
             return true;
         } catch (IOException ex) {
-            LOG.log(Level.INFO, String.format("[%,d] Error in sending response.", System.nanoTime()), ex);
+            LOG.log(Level.INFO, String.format("[%,d] Error in sending response.", System.currentTimeMillis()), ex);
             return false;
         }
     }

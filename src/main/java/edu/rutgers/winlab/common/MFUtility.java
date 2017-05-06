@@ -102,7 +102,7 @@ public class MFUtility {
             try {
                 RequestID = Long.parseLong(reqIDStr);
             } catch (Exception e) {
-                LOG.log(Level.INFO, String.format("[%,d] (me:%s, client:%s) Error in reading reqID (%s) from request.", System.nanoTime(), myGUID, clientGUID, reqIDStr), e);
+                LOG.log(Level.INFO, String.format("[%,d] (me:%s, client:%s) Error in reading reqID (%s) from request.", System.currentTimeMillis(), myGUID, clientGUID, reqIDStr), e);
                 RequestID = null;
                 return false;
             }
@@ -112,7 +112,7 @@ public class MFUtility {
             try {
                 Exclude = HTTPUtility.HTTP_DATE_FORMAT.parse(excludeStr).getTime();
             } catch (Exception e) {
-                LOG.log(Level.INFO, String.format("[%,d] (me:%s, client:%s, reqid:%d) Error in getting exclude field, ignore", System.nanoTime(), myGUID, clientGUID, RequestID), e);
+                LOG.log(Level.INFO, String.format("[%,d] (me:%s, client:%s, reqid:%d) Error in getting exclude field, ignore", System.currentTimeMillis(), myGUID, clientGUID, RequestID), e);
                 Exclude = null;
             }
             if (ptr[0] == length) {
@@ -156,7 +156,7 @@ public class MFUtility {
             try {
                 RequestID = Long.parseLong(reqIDStr);
             } catch (Exception e) {
-                LOG.log(Level.INFO, String.format("[%,d] (me:%s, src:%s) Error in reading reqID (%s) from request. ", System.nanoTime(), me, src, reqIDStr), e);
+                LOG.log(Level.INFO, String.format("[%,d] (me:%s, src:%s) Error in reading reqID (%s) from request. ", System.currentTimeMillis(), me, src, reqIDStr), e);
                 RequestID = null;
                 return false;
             }
@@ -164,7 +164,7 @@ public class MFUtility {
             try {
                 StatusCode = Integer.parseInt(statusStr);
             } catch (Exception e) {
-                LOG.log(Level.INFO, String.format("[%,d] (me:%s, src:%s, reqid:%d) Error in reading status (%s) from request. ", System.nanoTime(), me, src, RequestID, statusStr), e);
+                LOG.log(Level.INFO, String.format("[%,d] (me:%s, src:%s, reqid:%d) Error in reading status (%s) from request. ", System.currentTimeMillis(), me, src, RequestID, statusStr), e);
                 StatusCode = null;
                 return false;
             }
@@ -173,7 +173,7 @@ public class MFUtility {
             try {
                 LastModified = HTTPUtility.HTTP_DATE_FORMAT.parse(lastModifiedStr).getTime();
             } catch (Exception e) {
-                LOG.log(Level.INFO, String.format("[%,d] (me:%s, client:%s, reqid:%d) Error in getting lastModified field (%s), ignore", System.nanoTime(), me, src, RequestID, lastModifiedStr), e);
+                LOG.log(Level.INFO, String.format("[%,d] (me:%s, client:%s, reqid:%d) Error in getting lastModified field (%s), ignore", System.currentTimeMillis(), me, src, RequestID, lastModifiedStr), e);
                 LastModified = null;
             }
             if (ptr[0] == length) {

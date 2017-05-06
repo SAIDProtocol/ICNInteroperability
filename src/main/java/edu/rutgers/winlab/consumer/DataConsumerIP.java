@@ -30,7 +30,7 @@ public class DataConsumerIP implements DataConsumer {
             String lastModified = connection.getHeaderField(HTTP_HEADER_LAST_MODIFIED);
             try {
                 responseTime = HTTP_DATE_FORMAT.parse(lastModified).getTime();
-                LOG.log(Level.INFO, String.format("[%,d] Get content URL:%s LastModified:%s (%d)", System.nanoTime(), urlStr, lastModified, responseTime));
+                LOG.log(Level.INFO, String.format("[%,d] Get content URL:%s LastModified:%s (%d)", System.currentTimeMillis(), urlStr, lastModified, responseTime));
             } catch (Exception e) {
             }
             byte[] buf = new byte[1500];
@@ -41,7 +41,7 @@ public class DataConsumerIP implements DataConsumer {
                 }
                 output.handleDataRetrieved(demux, buf, 0, responseTime, true);
             }
-            LOG.log(Level.INFO, String.format("[%,d] Finished getting content URL:%s", System.nanoTime(), urlStr));
+            LOG.log(Level.INFO, String.format("[%,d] Finished getting content URL:%s", System.currentTimeMillis(), urlStr));
         }
         return responseTime;
     }
@@ -66,7 +66,7 @@ public class DataConsumerIP implements DataConsumer {
             host = domain;
         }
         HttpURLConnection connection = null;
-        LOG.log(Level.INFO, String.format("[%,d] Start getting content request:%s URL:%s", System.nanoTime(), request, urlStr));
+        LOG.log(Level.INFO, String.format("[%,d] Start getting content request:%s URL:%s", System.currentTimeMillis(), request, urlStr));
         try {
             URL url = new URL(urlStr);
             if (host == null) {
@@ -108,7 +108,7 @@ public class DataConsumerIP implements DataConsumer {
             host = domain;
         }
         HttpURLConnection connection = null;
-        LOG.log(Level.INFO, String.format("[%,d] Start getting content request: %s URL:%s", System.nanoTime(), request, urlStr));
+        LOG.log(Level.INFO, String.format("[%,d] Start getting content request: %s URL:%s", System.currentTimeMillis(), request, urlStr));
         try {
             URL url = new URL(urlStr);
             if (host == null) {

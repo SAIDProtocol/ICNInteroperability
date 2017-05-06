@@ -47,11 +47,11 @@ public class ProviderIP {
                 break;
             }
             default: {
-                LOG.log(Level.INFO, String.format("[%,d] Send response to %s, action (%s) not supportd", System.nanoTime(), exchange.getRemoteAddress(), requestMethod));
+                LOG.log(Level.INFO, String.format("[%,d] Send response to %s, action (%s) not supportd", System.currentTimeMillis(), exchange.getRemoteAddress(), requestMethod));
                 try {
                     writeQuickResponse(exchange, HTTP_NOT_IMPLEMENTED, HTTP_RESPONSE_UNSUPPORTED_ACTION_FORMAT, requestMethod);
                 } catch (IOException ex) {
-                    LOG.log(Level.SEVERE, String.format("[%,d] Error in writing response to %s", System.nanoTime(), exchange.getRemoteAddress()), ex);
+                    LOG.log(Level.SEVERE, String.format("[%,d] Error in writing response to %s", System.currentTimeMillis(), exchange.getRemoteAddress()), ex);
                 }
             }
         }
@@ -71,13 +71,13 @@ public class ProviderIP {
         // round the time to the next second
         lastModified = lastModified / 1000 * 1000 + ((lastModified % 1000 == 0) ? 0 : 1000);
 
-        LOG.log(Level.INFO, String.format("[%,d] Received static request URI:%s remote:%s f:%s exclude:%d", System.nanoTime(), uri, exchange.getRemoteAddress(), f, exclude));
+        LOG.log(Level.INFO, String.format("[%,d] Received static request URI:%s remote:%s f:%s exclude:%d", System.currentTimeMillis(), uri, exchange.getRemoteAddress(), f, exclude));
         if (!f.isFile()) {
             try {
-                LOG.log(Level.INFO, String.format("[%,d] File not exist write 404 URI:%s remote:%s", System.nanoTime(), uri, exchange.getRemoteAddress()));
+                LOG.log(Level.INFO, String.format("[%,d] File not exist write 404 URI:%s remote:%s", System.currentTimeMillis(), uri, exchange.getRemoteAddress()));
                 writeQuickResponse(exchange, HTTP_NOT_FOUND, HTTP_RESPONSE_FILE_NOT_FOUND_FORMAT, uri);
             } catch (IOException ex) {
-                LOG.log(Level.SEVERE, String.format("[%,d] Error in writing 404 to client %s", System.nanoTime(), exchange.getRemoteAddress()), ex);
+                LOG.log(Level.SEVERE, String.format("[%,d] Error in writing 404 to client %s", System.currentTimeMillis(), exchange.getRemoteAddress()), ex);
             }
             return;
         }
@@ -91,17 +91,17 @@ public class ProviderIP {
 
         if (exclude != null && exclude >= lastModified) {
             try {
-                LOG.log(Level.INFO, String.format("[%,d] File not modified write 304 URI:%s remote:%s f:%s exclude:%d", System.nanoTime(), uri, exchange.getRemoteAddress(), f, exclude));
+                LOG.log(Level.INFO, String.format("[%,d] File not modified write 304 URI:%s remote:%s f:%s exclude:%d", System.currentTimeMillis(), uri, exchange.getRemoteAddress(), f, exclude));
                 writeNotModified(exchange);
             } catch (IOException ex) {
-                LOG.log(Level.SEVERE, String.format("[%,d] Error in writing 304 to client %s", System.nanoTime(), exchange.getRemoteAddress()), ex);
+                LOG.log(Level.SEVERE, String.format("[%,d] Error in writing 304 to client %s", System.currentTimeMillis(), exchange.getRemoteAddress()), ex);
             }
         } else {
             try (FileInputStream fis = new FileInputStream(f)) {
-                LOG.log(Level.INFO, String.format("[%,d] Write file to client URI:%s remote:%s f:%s last-modified:%d, len:%d", System.nanoTime(), uri, exchange.getRemoteAddress(), f, lastModified, f.length()));
+                LOG.log(Level.INFO, String.format("[%,d] Write file to client URI:%s remote:%s f:%s last-modified:%d, len:%d", System.currentTimeMillis(), uri, exchange.getRemoteAddress(), f, lastModified, f.length()));
                 writeBody(exchange, fis, f.length(), new Date(lastModified));
             } catch (IOException ex) {
-                LOG.log(Level.SEVERE, String.format("[%,d] Error in writing file to client %s", System.nanoTime(), exchange.getRemoteAddress()), ex);
+                LOG.log(Level.SEVERE, String.format("[%,d] Error in writing file to client %s", System.currentTimeMillis(), exchange.getRemoteAddress()), ex);
             }
         }
     }
@@ -113,26 +113,26 @@ public class ProviderIP {
             buf = readRequestBody(exchange);
             if (buf == null) {
                 try {
-                    LOG.log(Level.INFO, String.format("[%,d] Content-Length field missing in header, respond not supported", System.nanoTime()));
+                    LOG.log(Level.INFO, String.format("[%,d] Content-Length field missing in header, respond not supported", System.currentTimeMillis()));
                     writeQuickResponse(exchange, HTTP_NOT_IMPLEMENTED, HTTP_RESPONSE_CONTENT_LENGTH_SHOULD_NOT_BE_NULL);
                 } catch (IOException ex) {
-                    LOG.log(Level.SEVERE, String.format("[%,d] Error in writing 501 to client %s", System.nanoTime(), exchange.getRemoteAddress()), ex);
+                    LOG.log(Level.SEVERE, String.format("[%,d] Error in writing 501 to client %s", System.currentTimeMillis(), exchange.getRemoteAddress()), ex);
                 }
                 return;
             }
         } catch (Exception ex) {
             try {
-                LOG.log(Level.SEVERE, String.format("[%,d] Error in reading client body", System.nanoTime()), ex);
+                LOG.log(Level.SEVERE, String.format("[%,d] Error in reading client body", System.currentTimeMillis()), ex);
                 writeQuickResponse(exchange, HTTP_BAD_REQUEST, HTTP_RESPONSE_ERROR_IN_READING_REQUEST_BODY, ex.toString());
             } catch (Exception ex2) {
-                LOG.log(Level.SEVERE, String.format("[%,d] Error in writing 400 to client %s", System.nanoTime(), exchange.getRemoteAddress()), ex2);
+                LOG.log(Level.SEVERE, String.format("[%,d] Error in writing 400 to client %s", System.currentTimeMillis(), exchange.getRemoteAddress()), ex2);
             }
             return;
         }
-        LOG.log(Level.INFO, String.format("[%,d] Received dynamic request URI:%s remote:%s reqBodyLen:%d", System.nanoTime(), uri, exchange.getRemoteAddress(), buf.length));
+        LOG.log(Level.INFO, String.format("[%,d] Received dynamic request URI:%s remote:%s reqBodyLen:%d", System.currentTimeMillis(), uri, exchange.getRemoteAddress(), buf.length));
 
         String queryString = new String(buf);
-        LOG.log(Level.INFO, String.format("[%,d] request body: %s", System.nanoTime(), queryString));
+        LOG.log(Level.INFO, String.format("[%,d] request body: %s", System.currentTimeMillis(), queryString));
         Map<String, List<String>> parameters = new HashMap<>();
         parseQuery(queryString, parameters);
 
@@ -153,10 +153,10 @@ public class ProviderIP {
                 HTTP_DATE_FORMAT.format(new Date()), exchange.getRemoteAddress(), queryString, uri).getBytes();
         try {
             Date lastModified = new Date();
-            LOG.log(Level.INFO, String.format("[%,d] Write file to client URI:%s remote:%s last-modified:%d, len:%d", System.nanoTime(), uri, exchange.getRemoteAddress(), lastModified.getTime(), result.length));
+            LOG.log(Level.INFO, String.format("[%,d] Write file to client URI:%s remote:%s last-modified:%d, len:%d", System.currentTimeMillis(), uri, exchange.getRemoteAddress(), lastModified.getTime(), result.length));
             writeBody(exchange, result, result.length, lastModified);
         } catch (Exception ex) {
-            LOG.log(Level.SEVERE, String.format("[%,d] Error in writing response to client %s", System.nanoTime(), exchange.getRemoteAddress()), ex);
+            LOG.log(Level.SEVERE, String.format("[%,d] Error in writing response to client %s", System.currentTimeMillis(), exchange.getRemoteAddress()), ex);
         }
     }
 
