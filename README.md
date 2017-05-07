@@ -85,8 +85,10 @@ However, do not set sleep > 4000, since this is the timeout time in CCN. You wil
   - [x] static (similar to file retriever)
   - [x] dynamic (similar to ORS client)
   - [x] MF content aggregator: (Use MF-IP GW to optimize)
-- [ ] Optimization: chunked transmission  
-- [ ] Optimization: put a global pending request table in the gw, instead of each adapter
-- [ ] Optimization: separate different adapters to different libraries. Gateway can choose which libraries to include. (E.g., people without MF can skip MF requirements.)
-- [ ] Fix: When NDN responds a content larger than 1 segment, there is error. Need to put a content repository.
+- [ ] Optimizations
+  - [ ] Chunked transmission  
+  - [ ] Put a global pending request table in the gw, instead of each adapter
+  - [ ] Separate different adapters to different libraries. Gateway can choose which libraries to include. (E.g., people without MF can skip MF requirements.)
+- [ ] Known bug fix
+  - [ ] Error when NDN responds a content larger than 1 segment. Need to put a content repository.
 
