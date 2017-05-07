@@ -383,6 +383,7 @@ public class DomainAdapterMF extends DomainAdapter {
                     LOG.log(Level.INFO, String.format("[%,d] %d responses waiting for reqID: %d", System.currentTimeMillis(), requests.size(), resp.RequestID));
                     if (resp.StatusCode == HttpURLConnection.HTTP_OK) {
                         requests.forEach(r -> r.getDataHandler().handleDataRetrieved(demux, resp.Body, resp.Body.length, resp.LastModified, true));
+                        LOG.log(Level.INFO, String.format("[%,d] Finished getting content demux:%s", System.currentTimeMillis(), demux));
                     } else {
                         requests.forEach(r -> r.getDataHandler().handleDataFailed(demux));
                     }
