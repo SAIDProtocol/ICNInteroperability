@@ -113,7 +113,7 @@ public class ProviderNDNDynamic {
             byte[] tmp = new byte[response.length + bodyLen];
             System.arraycopy(response, 0, tmp, 0, response.length);
             for (int i = 0, j = response.length; i < bodyLen; i++, j++) {
-                response[j] = 'a';
+                tmp[j] = 'a';
             }
             response = tmp;
         }
