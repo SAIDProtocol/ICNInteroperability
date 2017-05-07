@@ -281,6 +281,14 @@ public class DomainAdapterNDN extends DomainAdapter {
             pendingResponse.write(data, 0, size);
             if (finished) {
                 this.responseFinished = true;
+                pendingClients.entrySet().forEach(pair -> {
+                    CCNOutputStream[] cos = pair.getValue();
+                    if (cos[0] == null) {
+                        LOG.log(Level.WARNING, String.format("[%,d] No version for %s, left unhandled", System.currentTimeMillis(), pair.getKey()));
+                    } else {
+                        LOG.log(Level.INFO, String.format("[%,d] Wrote response to %s", System.currentTimeMillis(), pair.getKey()));
+                    }
+                });
             }
         }
     }
