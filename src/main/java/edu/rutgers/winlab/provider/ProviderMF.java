@@ -6,13 +6,10 @@
 package edu.rutgers.winlab.provider;
 
 import edu.rutgers.winlab.common.HTTPUtility;
-import static edu.rutgers.winlab.common.HTTPUtility.HTTP_DATE_FORMAT;
-import static edu.rutgers.winlab.common.HTTPUtility.parseQuery;
 import edu.rutgers.winlab.common.MFUtility;
 import edu.rutgers.winlab.jmfapi.GUID;
 import edu.rutgers.winlab.jmfapi.JMFAPI;
 import edu.rutgers.winlab.jmfapi.JMFException;
-import static edu.rutgers.winlab.provider.ProviderIP.SLEEP_PARAM_NAME;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
@@ -207,11 +204,11 @@ public class ProviderMF {
             String queryString = request.Body == null ? "" : new String(request.Body);
             LOG.log(Level.INFO, String.format("[%,d] request body: %s", System.currentTimeMillis(), queryString));
             Map<String, List<String>> parameters = new HashMap<>();
-            parseQuery(queryString, parameters);
+            HTTPUtility.parseQuery(queryString, parameters);
 
             int sleepLen = 0;
             try {
-                sleepLen = Integer.parseInt(parameters.get(SLEEP_PARAM_NAME).get(0));
+                sleepLen = Integer.parseInt(parameters.get(ProviderIP.SLEEP_PARAM_NAME).get(0));
             } catch (Exception e) {
             }
             if (sleepLen > 0) {
@@ -221,9 +218,22 @@ public class ProviderMF {
                     Logger.getLogger(ProviderMF.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }
+            int bodyLen = 0;
+            try {
+                bodyLen = Integer.parseInt(parameters.get(ProviderIP.BODY_LEN).get(0));
+            } catch (Exception e) {
+            }
 
             byte[] result = String.format("This is a simple response from MF provider!%nMy Time: %s%nYou are: %s%nInput: %s%nName: %s%nBye!%n",
-                    HTTP_DATE_FORMAT.format(new Date()), sGUID, queryString, request.Name).getBytes();
+                    HTTPUtility.HTTP_DATE_FORMAT.format(new Date()), sGUID, queryString, request.Name).getBytes();
+            if (bodyLen > 0) {
+                byte[] tmp = new byte[result.length + bodyLen];
+                System.arraycopy(result, 0, tmp, 0, result.length);
+                for (int i = 0, j = result.length; i < bodyLen; i++, j++) {
+                    result[j] = 'a';
+                }
+                result = tmp;
+            }
             writeBody(sGUID, request.RequestID, HttpURLConnection.HTTP_OK, System.currentTimeMillis(), result);
 
         }

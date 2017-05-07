@@ -5,7 +5,7 @@
  */
 package edu.rutgers.winlab.consumer;
 
-import static edu.rutgers.winlab.common.NDNUtility.*;
+import edu.rutgers.winlab.common.NDNUtility;
 import edu.rutgers.winlab.icninteroperability.*;
 import edu.rutgers.winlab.icninteroperability.canonical.*;
 import java.io.*;
@@ -53,7 +53,7 @@ public class DataConsumerNDN implements DataConsumer {
             name = '/' + name;
         }
         try {
-            if (domain.equals(CROSS_DOMAIN_HOST_NDN)) {
+            if (domain.equals(NDNUtility.CROSS_DOMAIN_HOST_NDN)) {
                 contentName = ContentName.fromNative(name);
             } else {
                 contentName = ContentName.fromNative(String.format("/%s%s", domain, name));
@@ -101,7 +101,7 @@ public class DataConsumerNDN implements DataConsumer {
             name = '/' + name;
         }
         try {
-            if (domain.equals(CROSS_DOMAIN_HOST_NDN)) {
+            if (domain.equals(NDNUtility.CROSS_DOMAIN_HOST_NDN)) {
                 contentName = ContentName.fromNative(name);
             } else {
                 contentName = ContentName.fromNative(String.format("/%s%s", domain, name));

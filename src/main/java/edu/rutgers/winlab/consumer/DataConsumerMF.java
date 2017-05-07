@@ -7,9 +7,6 @@ package edu.rutgers.winlab.consumer;
 
 import edu.rutgers.winlab.common.HTTPUtility;
 import edu.rutgers.winlab.common.MFUtility;
-import static edu.rutgers.winlab.common.MFUtility.CROSS_DOMAIN_HOST_MF;
-import static edu.rutgers.winlab.common.MFUtility.DOMAIN_MAPPING_TABLE;
-import static edu.rutgers.winlab.common.MFUtility.getRequest;
 import edu.rutgers.winlab.icninteroperability.canonical.*;
 import edu.rutgers.winlab.jmfapi.GUID;
 import edu.rutgers.winlab.jmfapi.JMFAPI;
@@ -52,7 +49,7 @@ public class DataConsumerMF implements DataConsumer {
             name = name.substring(1);
         }
         int dstGUID;
-        if (domain.equals(CROSS_DOMAIN_HOST_MF)) {
+        if (domain.equals(MFUtility.CROSS_DOMAIN_HOST_MF)) {
             int idx = name.indexOf('/');
             if (idx < 0) {
                 dstGUID = Integer.parseInt(name);
@@ -62,9 +59,9 @@ public class DataConsumerMF implements DataConsumer {
                 name = name.substring(idx + 1);
             }
         } else {
-            dstGUID = DOMAIN_MAPPING_TABLE.get(domain);
+            dstGUID = MFUtility.DOMAIN_MAPPING_TABLE.get(domain);
         }
-        MFUtility.MFRequest req = getRequest(request, name, null);
+        MFUtility.MFRequest req = MFUtility.getRequest(request, name, null);
         byte[] buf = req.encode();
         try {
             handle.jmfsend(buf, buf.length, new GUID(dstGUID));

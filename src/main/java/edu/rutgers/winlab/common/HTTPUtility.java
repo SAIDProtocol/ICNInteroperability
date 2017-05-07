@@ -10,8 +10,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
-import static java.net.HttpURLConnection.HTTP_NOT_MODIFIED;
-import static java.net.HttpURLConnection.HTTP_OK;
+import java.net.HttpURLConnection;
 import java.net.URLDecoder;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -58,7 +57,7 @@ public class HTTPUtility {
             HTTP_DATE_FORMAT.setTimeZone(TimeZone.getTimeZone("GMT"));
             exchange.getResponseHeaders().add(HTTP_HEADER_LAST_MODIFIED, HTTP_DATE_FORMAT.format(lastModified));
         }
-        exchange.sendResponseHeaders(HTTP_OK, size);
+        exchange.sendResponseHeaders(HttpURLConnection.HTTP_OK, size);
 
         try (OutputStream output = exchange.getResponseBody()) {
             output.write(data, 0, size);
@@ -68,7 +67,7 @@ public class HTTPUtility {
     }
 
     public static void writeNotModified(HttpExchange exchange) throws IOException {
-        exchange.sendResponseHeaders(HTTP_NOT_MODIFIED, -1);
+        exchange.sendResponseHeaders(HttpURLConnection.HTTP_NOT_MODIFIED, -1);
         exchange.getResponseBody().close();
         exchange.close();
 
@@ -80,7 +79,7 @@ public class HTTPUtility {
             HTTP_DATE_FORMAT.setTimeZone(TimeZone.getTimeZone("GMT"));
             exchange.getResponseHeaders().add(HTTP_HEADER_LAST_MODIFIED, HTTP_DATE_FORMAT.format(lastModified));
         }
-        exchange.sendResponseHeaders(HTTP_OK, size);
+        exchange.sendResponseHeaders(HttpURLConnection.HTTP_OK, size);
 
         try (OutputStream output = exchange.getResponseBody()) {
             int read;

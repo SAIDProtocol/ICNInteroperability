@@ -5,7 +5,7 @@
  */
 package edu.rutgers.winlab.icninteroperability;
 
-import static edu.rutgers.winlab.common.NDNUtility.suppressNDNLog;
+import edu.rutgers.winlab.common.NDNUtility;
 import edu.rutgers.winlab.icninteroperability.ip.DomainAdapterIP;
 import edu.rutgers.winlab.icninteroperability.mf.DomainAdapterMF;
 import edu.rutgers.winlab.icninteroperability.ndn.DomainAdapterNDN;
@@ -34,7 +34,7 @@ public class RunGateway {
     }
 
     public static void runGatewayIPNDN() throws IOException {
-        suppressNDNLog();
+        NDNUtility.suppressNDNLog();
         System.out.println("Starting IP(80)-NDN GW");
         DomainAdapterIP d1 = new DomainAdapterIP("d1", 80);
         DomainAdapterNDN d2 = new DomainAdapterNDN("d2");
@@ -51,7 +51,7 @@ public class RunGateway {
     }
 
     public static void runGatewayMFNDN() throws IOException, JMFException {
-        suppressNDNLog();
+        NDNUtility.suppressNDNLog();
         System.out.println("Starting MF(4096)-NDN GW");
         DomainAdapter d1 = new DomainAdapterMF("d1:4096", 4096),
                 d2 = new DomainAdapterNDN("d2");

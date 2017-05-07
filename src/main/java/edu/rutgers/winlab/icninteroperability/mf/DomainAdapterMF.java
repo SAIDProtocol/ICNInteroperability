@@ -7,9 +7,6 @@ package edu.rutgers.winlab.icninteroperability.mf;
 
 import edu.rutgers.winlab.common.HTTPUtility;
 import edu.rutgers.winlab.common.MFUtility;
-import static edu.rutgers.winlab.common.MFUtility.CROSS_DOMAIN_HOST_MF;
-import static edu.rutgers.winlab.common.MFUtility.DOMAIN_MAPPING_TABLE;
-import static edu.rutgers.winlab.common.MFUtility.getRequest;
 import edu.rutgers.winlab.icninteroperability.DemultiplexingEntity;
 import edu.rutgers.winlab.icninteroperability.DomainAdapter;
 import edu.rutgers.winlab.icninteroperability.canonical.CanonicalRequest;
@@ -45,8 +42,8 @@ public class DomainAdapterMF extends DomainAdapter {
         senderHandle = new JMFAPI();
         this.senderGUID = new GUID(guid);
         senderHandle.jmfopen("basic", this.senderGUID);
-        for (Map.Entry<String, Integer> entry : DOMAIN_MAPPING_TABLE.entrySet()) {
-            if (entry.getKey().equals(CROSS_DOMAIN_HOST_MF)) {
+        for (Map.Entry<String, Integer> entry : MFUtility.DOMAIN_MAPPING_TABLE.entrySet()) {
+            if (entry.getKey().equals(MFUtility.CROSS_DOMAIN_HOST_MF)) {
                 continue;
             }
             guidListeners.put(entry.getValue(), new GUIDListenThread(entry.getValue(), entry.getKey()));
@@ -104,7 +101,7 @@ public class DomainAdapterMF extends DomainAdapter {
                     if (request.Name.startsWith("/")) {
                         request.Name = request.Name.substring(1);
                     }
-                    if (domainName.equals(CROSS_DOMAIN_HOST_MF)) {
+                    if (domainName.equals(MFUtility.CROSS_DOMAIN_HOST_MF)) {
                         request.Name = String.format("%s/%s", domainGUID, request.Name);
                     }
 
@@ -327,7 +324,7 @@ public class DomainAdapterMF extends DomainAdapter {
             name = name.substring(1);
         }
         int dstGUID;
-        if (domain.equals(CROSS_DOMAIN_HOST_MF)) {
+        if (domain.equals(MFUtility.CROSS_DOMAIN_HOST_MF)) {
             int idx = name.indexOf('/');
             if (idx < 0) {
                 dstGUID = Integer.parseInt(name);
@@ -337,9 +334,9 @@ public class DomainAdapterMF extends DomainAdapter {
                 name = name.substring(idx + 1);
             }
         } else {
-            dstGUID = DOMAIN_MAPPING_TABLE.get(domain);
+            dstGUID = MFUtility.DOMAIN_MAPPING_TABLE.get(domain);
         }
-        MFUtility.MFRequest req = getRequest(request, name, reqID);
+        MFUtility.MFRequest req = MFUtility.getRequest(request, name, reqID);
         byte[] buf = req.encode();
         try {
             senderHandle.jmfsend(buf, buf.length, new GUID(dstGUID));

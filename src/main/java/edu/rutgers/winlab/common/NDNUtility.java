@@ -8,17 +8,13 @@ package edu.rutgers.winlab.common;
 import java.util.Arrays;
 import java.util.logging.Level;
 import org.ccnx.ccn.impl.support.Log;
+import org.ccnx.ccn.profiles.CommandMarker;
 import org.ccnx.ccn.profiles.SegmentationProfile;
 import org.ccnx.ccn.profiles.VersioningProfile;
 import org.ccnx.ccn.profiles.metadata.MetadataProfile;
 import org.ccnx.ccn.protocol.ContentName;
 import org.ccnx.ccn.protocol.Exclude;
 import org.ccnx.ccn.protocol.ExcludeComponent;
-import static org.ccnx.ccn.profiles.CommandMarker.isCommandComponent;
-import static org.ccnx.ccn.profiles.SegmentationProfile.isFirstSegment;
-import static org.ccnx.ccn.profiles.SegmentationProfile.isSegment;
-import static org.ccnx.ccn.profiles.metadata.MetadataProfile.isHeader;
-import static org.ccnx.ccn.profiles.metadata.MetadataProfile.OLD_METADATA_NAMESPACE;
 
 /**
  *
@@ -46,7 +42,7 @@ public class NDNUtility {
         if (!Arrays.equals(potentialHeaderName.lastComponent(), MetadataProfile.HEADER_NAME)) {
             return false;
         }
-        return Arrays.equals(potentialHeaderName.component(potentialHeaderName.count() - 2), OLD_METADATA_NAMESPACE);
+        return Arrays.equals(potentialHeaderName.component(potentialHeaderName.count() - 2), MetadataProfile.OLD_METADATA_NAMESPACE);
     }
 
     public static Long getLastTimeFromExclude(Exclude exclude) {
@@ -71,14 +67,14 @@ public class NDNUtility {
     }
 
     public static boolean needSkip(ContentName name) {
-        if (isSegment(name) && !isFirstSegment(name)) {
+        if (SegmentationProfile.isSegment(name) && !SegmentationProfile.isFirstSegment(name)) {
             return true;
         }
-        if (isHeader(name) || isOldHeader(name)) {
+        if (MetadataProfile.isHeader(name) || isOldHeader(name)) {
             return true;
         }
         for (int i = 0; i < name.count(); i++) {
-            if (isCommandComponent(name.component(i))) {
+            if (CommandMarker.isCommandComponent(name.component(i))) {
                 return true;
             }
         }

@@ -9,6 +9,7 @@ import edu.rutgers.winlab.common.NDNUtility;
 import edu.rutgers.winlab.icninteroperability.*;
 import edu.rutgers.winlab.icninteroperability.canonical.*;
 import java.io.*;
+import java.net.URISyntaxException;
 import java.util.*;
 import java.util.function.*;
 import java.util.logging.*;
@@ -17,11 +18,7 @@ import org.ccnx.ccn.config.*;
 import org.ccnx.ccn.io.*;
 import org.ccnx.ccn.profiles.*;
 import org.ccnx.ccn.protocol.*;
-import static edu.rutgers.winlab.common.NDNUtility.*;
-import edu.rutgers.winlab.icninteroperability.ip.DomainAdapterIP;
-import java.net.URISyntaxException;
 import org.ccnx.ccn.impl.support.Tuple;
-import static org.ccnx.ccn.profiles.VersioningProfile.hasTerminalVersion;
 
 /**
  *
@@ -56,7 +53,7 @@ public class DomainAdapterNDN extends DomainAdapter {
     private final HashMap<DemultiplexingEntity, ResponseHandler> pendingRequests = new HashMap<>();
 
     private boolean handleInterest(Interest interest) {
-        if (needSkip(interest.name())) {
+        if (NDNUtility.needSkip(interest.name())) {
             LOG.log(Level.INFO, String.format("[%,d] Skip interest %s.", System.currentTimeMillis(), interest));
             return false;
         }
@@ -66,7 +63,7 @@ public class DomainAdapterNDN extends DomainAdapter {
         String host = name.count() == 0 ? "" : new String(name.component(0));
         String domain = host.toUpperCase();
         if (!domain.startsWith(CROSS_DOMAIN_HOST_PREFIX)) {
-            domain = CROSS_DOMAIN_HOST_NDN;
+            domain = NDNUtility.CROSS_DOMAIN_HOST_NDN;
         } else {
             name = name.subname(1, name.count());
         }
@@ -195,7 +192,7 @@ public class DomainAdapterNDN extends DomainAdapter {
 
         public synchronized void addClient(Interest request) {
             CCNOutputStream cos = null;
-            if (hasTerminalVersion(request.name())) {
+            if (VersioningProfile.hasTerminalVersion(request.name())) {
                 try {
                     cos = new CCNOutputStream(request.name(), handle);
                     cos.addOutstandingInterest(request);
@@ -352,7 +349,7 @@ public class DomainAdapterNDN extends DomainAdapter {
             String domain = firstRequest.getDestDomain(), name = firstRequest.getTargetName();
             ContentName contentName;
             try {
-                if (domain.equals(CROSS_DOMAIN_HOST_NDN)) {
+                if (domain.equals(NDNUtility.CROSS_DOMAIN_HOST_NDN)) {
                     contentName = ContentName.fromNative("/" + name);
                 } else {
                     contentName = ContentName.fromNative(String.format("/%s/%s", domain, name));

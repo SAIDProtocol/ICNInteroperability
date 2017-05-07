@@ -5,11 +5,9 @@
  */
 package edu.rutgers.winlab.consumer;
 
-import static edu.rutgers.winlab.common.HTTPUtility.CROSS_DOMAIN_HOST_IP;
-import static edu.rutgers.winlab.common.HTTPUtility.HTTP_DATE_FORMAT;
-import static edu.rutgers.winlab.common.MFUtility.CROSS_DOMAIN_HOST_MF;
-import static edu.rutgers.winlab.common.NDNUtility.CROSS_DOMAIN_HOST_NDN;
-import static edu.rutgers.winlab.common.NDNUtility.suppressNDNLog;
+import edu.rutgers.winlab.common.HTTPUtility;
+import edu.rutgers.winlab.common.MFUtility;
+import edu.rutgers.winlab.common.NDNUtility;
 import edu.rutgers.winlab.icninteroperability.DataHandler;
 import edu.rutgers.winlab.icninteroperability.DemultiplexingEntity;
 import edu.rutgers.winlab.icninteroperability.canonical.CanonicalRequest;
@@ -33,18 +31,18 @@ public class RunConsumer {
     private static void usage() {
         System.err.printf("Usage: java %s <output> <static|dynamic> <consumerType> <consumerName> <dstDomain> <name> <[exclude|input]>%n", RunConsumer.class.getName());
         System.err.printf("    output: File name for output. print to System.out if output==%s%n", SYSTEM_OUT_NAME);
-        System.err.printf("    consumerType dstDomain: %s|%s|%s%n", CROSS_DOMAIN_HOST_IP, CROSS_DOMAIN_HOST_NDN, CROSS_DOMAIN_HOST_MF);
+        System.err.printf("    consumerType dstDomain: %s|%s|%s%n", HTTPUtility.CROSS_DOMAIN_HOST_IP, NDNUtility.CROSS_DOMAIN_HOST_NDN, MFUtility.CROSS_DOMAIN_HOST_MF);
         System.err.printf("    for static, the last component would be seen as exclude [using HTTP date format]. if cannot be parsed, null will be used%n");
         System.err.printf("    for dynamic, the last component would be seen as input. Empty string will be used if this component does not exist%n");
     }
 
     private static DataConsumer getConsumerFromType(String type, String name) throws ConfigurationException, IOException, JMFException {
         switch (type) {
-            case CROSS_DOMAIN_HOST_IP:
+            case HTTPUtility.CROSS_DOMAIN_HOST_IP:
                 return new DataConsumerIP();
-            case CROSS_DOMAIN_HOST_NDN:
+            case NDNUtility.CROSS_DOMAIN_HOST_NDN:
                 return new DataConsumerNDN(name);
-            case CROSS_DOMAIN_HOST_MF:
+            case MFUtility.CROSS_DOMAIN_HOST_MF:
                 return new DataConsumerMF(name);
             default:
                 System.err.printf("[%,d] Cannot understand consumer type %s%n", System.currentTimeMillis(), type);
@@ -55,9 +53,9 @@ public class RunConsumer {
 
     private static CanonicalRequest getRequest(String type, String domain, String name, String extra, DataHandler handler) {
         switch (domain) {
-            case CROSS_DOMAIN_HOST_IP:
-            case CROSS_DOMAIN_HOST_NDN:
-            case CROSS_DOMAIN_HOST_MF:
+            case HTTPUtility.CROSS_DOMAIN_HOST_IP:
+            case NDNUtility.CROSS_DOMAIN_HOST_NDN:
+            case MFUtility.CROSS_DOMAIN_HOST_MF:
                 break;
             default:
                 System.err.printf("[%,d] Cannot understand dstDomain type %s%n", System.currentTimeMillis(), domain);
@@ -69,7 +67,7 @@ public class RunConsumer {
             case "static":
                 Long version = null;
                 try {
-                    version = HTTP_DATE_FORMAT.parse(extra).getTime();
+                    version = HTTPUtility.HTTP_DATE_FORMAT.parse(extra).getTime();
                 } catch (Exception e) {
                 }
                 return new CanonicalRequestStatic(domain, name, version, handler);
@@ -82,7 +80,7 @@ public class RunConsumer {
     }
 
     public static void main(String[] args) throws ConfigurationException, IOException, JMFException {
-        suppressNDNLog();
+        NDNUtility.suppressNDNLog();
         if (args.length < 6) {
             usage();
             return;
@@ -117,7 +115,7 @@ public class RunConsumer {
                     return;
                 }
                 Long version = consumer.request(request);
-                System.err.printf("[%,d] Version is: %s (%d)%n", System.currentTimeMillis(), version == null ? null : HTTP_DATE_FORMAT.format(new Date(version)), version);
+                System.err.printf("[%,d] Version is: %s (%d)%n", System.currentTimeMillis(), version == null ? null : HTTPUtility.HTTP_DATE_FORMAT.format(new Date(version)), version);
 
                 os.flush();
             }

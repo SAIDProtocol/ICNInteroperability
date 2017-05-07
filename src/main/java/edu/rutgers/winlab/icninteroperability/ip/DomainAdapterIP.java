@@ -6,6 +6,7 @@
 package edu.rutgers.winlab.icninteroperability.ip;
 
 import com.sun.net.httpserver.*;
+import edu.rutgers.winlab.common.HTTPUtility;
 import edu.rutgers.winlab.icninteroperability.*;
 import edu.rutgers.winlab.icninteroperability.canonical.*;
 import java.io.*;
@@ -13,8 +14,6 @@ import java.net.*;
 import java.util.*;
 import java.util.function.*;
 import java.util.logging.*;
-import static edu.rutgers.winlab.common.HTTPUtility.*;
-import static java.net.HttpURLConnection.*;
 
 /**
  *
@@ -59,11 +58,11 @@ public class DomainAdapterIP extends DomainAdapter {
             name = name.substring(1);
         }
 
-        String host = exchange.getRequestHeaders().getFirst(HTTP_HEADER_HOST);
+        String host = exchange.getRequestHeaders().getFirst(HTTPUtility.HTTP_HEADER_HOST);
         if (host == null) {
             LOG.log(Level.INFO, String.format("[%,d] Send response to %s, host==null not supportd", System.currentTimeMillis(), exchange.getRemoteAddress()));
             try {
-                writeQuickResponse(exchange, HTTP_NOT_IMPLEMENTED, HTTP_RESPONSE_HOST_SHOULD_NOT_BE_NULL);
+                HTTPUtility.writeQuickResponse(exchange, HttpURLConnection.HTTP_NOT_IMPLEMENTED, HTTPUtility.HTTP_RESPONSE_HOST_SHOULD_NOT_BE_NULL);
             } catch (Exception ex) {
                 LOG.log(Level.SEVERE, String.format("[%,d] Error in writing response to %s", System.currentTimeMillis(), exchange.getRemoteAddress()), ex);
             }
@@ -73,7 +72,7 @@ public class DomainAdapterIP extends DomainAdapter {
         String domain = host.toUpperCase();
         if (!domain.startsWith(CROSS_DOMAIN_HOST_PREFIX)) {
             // means it is an IP request
-            domain = CROSS_DOMAIN_HOST_IP;
+            domain = HTTPUtility.CROSS_DOMAIN_HOST_IP;
             // put the host before the url string
             name = host + "/" + name;
         } else {
@@ -93,18 +92,18 @@ public class DomainAdapterIP extends DomainAdapter {
 
         String requestMethod = exchange.getRequestMethod();
         switch (requestMethod) {
-            case HTTP_METHOD_STATIC: {
+            case HTTPUtility.HTTP_METHOD_STATIC: {
                 handleStaticRequest(exchange, domain, name);
                 break;
             }
-            case HTTP_METHOD_DYNAMIC: {
+            case HTTPUtility.HTTP_METHOD_DYNAMIC: {
                 handleDynamicRequest(exchange, domain, name);
                 break;
             }
             default: {
                 LOG.log(Level.INFO, String.format("[%,d] Send response to %s, action (%s) not supportd", System.currentTimeMillis(), exchange.getRemoteAddress(), requestMethod));
                 try {
-                    writeQuickResponse(exchange, HTTP_NOT_IMPLEMENTED, HTTP_RESPONSE_UNSUPPORTED_ACTION_FORMAT, requestMethod);
+                    HTTPUtility.writeQuickResponse(exchange, HttpURLConnection.HTTP_NOT_IMPLEMENTED, HTTPUtility.HTTP_RESPONSE_UNSUPPORTED_ACTION_FORMAT, requestMethod);
                 } catch (Exception ex) {
                     LOG.log(Level.SEVERE, String.format("[%,d] Error in writing response to %s", System.currentTimeMillis(), exchange.getRemoteAddress()), ex);
                 }
@@ -114,10 +113,10 @@ public class DomainAdapterIP extends DomainAdapter {
     }
 
     private void handleStaticRequest(HttpExchange exchange, String domain, String name) {
-        String ifModifiedSince = exchange.getRequestHeaders().getFirst(HTTP_HEADER_IF_MODIFIED_SINCE);
+        String ifModifiedSince = exchange.getRequestHeaders().getFirst(HTTPUtility.HTTP_HEADER_IF_MODIFIED_SINCE);
         Long exclude = null;
         try {
-            exclude = HTTP_DATE_FORMAT.parse(ifModifiedSince).getTime();
+            exclude = HTTPUtility.HTTP_DATE_FORMAT.parse(ifModifiedSince).getTime();
         } catch (Exception ex) {
             // if cannot parse date, see it as NULL
         }
@@ -145,11 +144,11 @@ public class DomainAdapterIP extends DomainAdapter {
 
         byte[] body;
         try {
-            body = readRequestBody(exchange);
+            body = HTTPUtility.readRequestBody(exchange);
             if (body == null) {
                 try {
                     LOG.log(Level.INFO, String.format("[%,d] Content-Length field missing in header, respond not supported", System.currentTimeMillis()));
-                    writeQuickResponse(exchange, HTTP_NOT_IMPLEMENTED, HTTP_RESPONSE_CONTENT_LENGTH_SHOULD_NOT_BE_NULL);
+                    HTTPUtility.writeQuickResponse(exchange, HttpURLConnection.HTTP_NOT_IMPLEMENTED, HTTPUtility.HTTP_RESPONSE_CONTENT_LENGTH_SHOULD_NOT_BE_NULL);
                 } catch (IOException ex) {
                     LOG.log(Level.SEVERE, String.format("[%,d] Error in writing 501 to client %s", System.currentTimeMillis(), exchange.getRemoteAddress()), ex);
                 }
@@ -158,7 +157,7 @@ public class DomainAdapterIP extends DomainAdapter {
         } catch (Exception ex) {
             try {
                 LOG.log(Level.SEVERE, String.format("[%,d] Error in reading client body", System.currentTimeMillis()), ex);
-                writeQuickResponse(exchange, HTTP_BAD_REQUEST, HTTP_RESPONSE_ERROR_IN_READING_REQUEST_BODY, ex.toString());
+                HTTPUtility.writeQuickResponse(exchange, HttpURLConnection.HTTP_BAD_REQUEST, HTTPUtility.HTTP_RESPONSE_ERROR_IN_READING_REQUEST_BODY, ex.toString());
             } catch (Exception ex2) {
                 LOG.log(Level.SEVERE, String.format("[%,d] Error in writing 400 to client %s", System.currentTimeMillis(), exchange.getRemoteAddress()), ex2);
             }
@@ -181,7 +180,7 @@ public class DomainAdapterIP extends DomainAdapter {
                 // should not reach here, dynamic request should have no pending interests
                 try {
                     LOG.log(Level.SEVERE, String.format("[%,d] Having duplicate demux %s for dynamic request", System.currentTimeMillis(), demux));
-                    writeQuickResponse(exchange, HTTP_INTERNAL_ERROR, HTTP_RESPONSE_FAIL_IN_PROCESS, "Having duplicate demux for dynamic request", demux);
+                    HTTPUtility.writeQuickResponse(exchange, HttpURLConnection.HTTP_INTERNAL_ERROR, HTTPUtility.HTTP_RESPONSE_FAIL_IN_PROCESS, "Having duplicate demux for dynamic request", demux);
                 } catch (Exception ex2) {
                     LOG.log(Level.SEVERE, String.format("[%,d] Error in writing 500 to client %s", System.currentTimeMillis(), exchange.getRemoteAddress()), ex2);
                 }
@@ -237,7 +236,7 @@ public class DomainAdapterIP extends DomainAdapter {
             responseFinished = true;
             pendingClients.forEach((pendingClient) -> {
                 try {
-                    writeNotModified(pendingClient);
+                    HTTPUtility.writeNotModified(pendingClient);
                     LOG.log(Level.INFO, String.format("[%,d] Wrote Not Modified to %s", System.currentTimeMillis(), pendingClient.getRemoteAddress()));
                 } catch (Exception ex) {
                     LOG.log(Level.SEVERE, String.format("[%,d] Error in writing response to %s", System.currentTimeMillis(), pendingClient.getRemoteAddress()), ex);
@@ -269,7 +268,7 @@ public class DomainAdapterIP extends DomainAdapter {
             int responseSize = pendingResponse.size();
             pendingClients.forEach((pendingClient) -> {
                 try {
-                    writeBody(pendingClient, buf, responseSize, time == null ? null : new Date(time));
+                    HTTPUtility.writeBody(pendingClient, buf, responseSize, time == null ? null : new Date(time));
                     LOG.log(Level.INFO, String.format("[%,d] Wrote response to %s", System.currentTimeMillis(), pendingClient.getRemoteAddress()));
                 } catch (Exception ex) {
                     LOG.log(Level.SEVERE, String.format("[%,d] Error in writing response to %s", System.currentTimeMillis(), pendingClient.getRemoteAddress()), ex);
@@ -342,11 +341,11 @@ public class DomainAdapterIP extends DomainAdapter {
 
             String urlStr = null, host = null;
             String domain = firstRequest.getDestDomain(), name = firstRequest.getTargetName();
-            if (domain.equals(CROSS_DOMAIN_HOST_IP)) {
+            if (domain.equals(HTTPUtility.CROSS_DOMAIN_HOST_IP)) {
                 urlStr = "http://" + name;
             } else {
                 try {
-                    urlStr = String.format("http://%s%s/%s", domain, OUTGOING_GATEWAY_DOMAIN_SUFFIX, URLEncoder.encode(name, "UTF-8"));
+                    urlStr = String.format("http://%s%s/%s", domain, HTTPUtility.OUTGOING_GATEWAY_DOMAIN_SUFFIX, URLEncoder.encode(name, "UTF-8"));
                 } catch (UnsupportedEncodingException ex) {
                     LOG.log(Level.SEVERE, "Should not reach here, using UTF-8 encoding", ex);
                 }
@@ -366,12 +365,12 @@ public class DomainAdapterIP extends DomainAdapter {
         }
 
         private void forwardResponse(DemultiplexingEntity demux, String urlStr, HttpURLConnection connection) throws IOException {
-            if (connection.getResponseCode() != HTTP_OK) {
+            if (connection.getResponseCode() != HttpURLConnection.HTTP_OK) {
                 handlers.forEach(handler -> handler.handleDataFailed(demux));
             } else {
-                String lastModified = connection.getHeaderField(HTTP_HEADER_LAST_MODIFIED);
+                String lastModified = connection.getHeaderField(HTTPUtility.HTTP_HEADER_LAST_MODIFIED);
                 try {
-                    responseTime = HTTP_DATE_FORMAT.parse(lastModified).getTime();
+                    responseTime = HTTPUtility.HTTP_DATE_FORMAT.parse(lastModified).getTime();
                     LOG.log(Level.INFO, String.format("[%,d] Get content demux:%s URL:%s LastModified:%d", System.currentTimeMillis(), demux, urlStr, responseTime));
                 } catch (Exception e) {
 
@@ -400,10 +399,10 @@ public class DomainAdapterIP extends DomainAdapter {
                     host = url.getHost();
                 }
                 connection = (HttpURLConnection) url.openConnection();
-                connection.setRequestMethod(HTTP_METHOD_DYNAMIC);
-                connection.setRequestProperty(HTTP_HEADER_HOST, host);
+                connection.setRequestMethod(HTTPUtility.HTTP_METHOD_DYNAMIC);
+                connection.setRequestProperty(HTTPUtility.HTTP_HEADER_HOST, host);
                 connection.setUseCaches(false);
-                connection.setRequestProperty(HTTP_HEADER_CONTENT_LENGTH, Integer.toString(input.length));
+                connection.setRequestProperty(HTTPUtility.HTTP_HEADER_CONTENT_LENGTH, Integer.toString(input.length));
                 connection.setDoOutput(true);
 
                 try (OutputStream output = connection.getOutputStream()) {
@@ -435,10 +434,10 @@ public class DomainAdapterIP extends DomainAdapter {
                     host = url.getHost();
                 }
                 connection = (HttpURLConnection) url.openConnection();
-                connection.setRequestMethod(HTTP_METHOD_STATIC);
-                connection.setRequestProperty(HTTP_HEADER_HOST, host);
+                connection.setRequestMethod(HTTPUtility.HTTP_METHOD_STATIC);
+                connection.setRequestProperty(HTTPUtility.HTTP_HEADER_HOST, host);
                 if (exclude != null) {
-                    connection.setRequestProperty(HTTP_HEADER_IF_MODIFIED_SINCE, HTTP_DATE_FORMAT.format(new Date(exclude)));
+                    connection.setRequestProperty(HTTPUtility.HTTP_HEADER_IF_MODIFIED_SINCE, HTTPUtility.HTTP_DATE_FORMAT.format(new Date(exclude)));
                 }
                 forwardResponse(demux, urlStr, connection);
 

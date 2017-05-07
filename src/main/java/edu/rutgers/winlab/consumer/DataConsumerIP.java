@@ -5,8 +5,7 @@
  */
 package edu.rutgers.winlab.consumer;
 
-import static edu.rutgers.winlab.common.HTTPUtility.*;
-import static java.net.HttpURLConnection.*;
+import edu.rutgers.winlab.common.HTTPUtility;
 import edu.rutgers.winlab.icninteroperability.*;
 import edu.rutgers.winlab.icninteroperability.canonical.*;
 import java.io.*;
@@ -24,12 +23,12 @@ public class DataConsumerIP implements DataConsumer {
 
     private Long forwardResponse(DemultiplexingEntity demux, String urlStr, HttpURLConnection connection, DataHandler output) throws IOException {
         Long responseTime = null;
-        if (connection.getResponseCode() != HTTP_OK) {
+        if (connection.getResponseCode() != HttpURLConnection.HTTP_OK) {
             throw new IOException("Response code is not 200 OK!");
         } else {
-            String lastModified = connection.getHeaderField(HTTP_HEADER_LAST_MODIFIED);
+            String lastModified = connection.getHeaderField(HTTPUtility.HTTP_HEADER_LAST_MODIFIED);
             try {
-                responseTime = HTTP_DATE_FORMAT.parse(lastModified).getTime();
+                responseTime = HTTPUtility.HTTP_DATE_FORMAT.parse(lastModified).getTime();
                 LOG.log(Level.INFO, String.format("[%,d] Get content URL:%s LastModified:%s (%d)", System.currentTimeMillis(), urlStr, lastModified, responseTime));
             } catch (Exception e) {
             }
@@ -55,11 +54,11 @@ public class DataConsumerIP implements DataConsumer {
         }
 
         Long exclude = request.getExclude();
-        if (domain.equals(CROSS_DOMAIN_HOST_IP)) {
+        if (domain.equals(HTTPUtility.CROSS_DOMAIN_HOST_IP)) {
             urlStr = "http://" + name;
         } else {
             try {
-                urlStr = String.format("http://%s%s/%s", domain, OUTGOING_GATEWAY_DOMAIN_SUFFIX, URLEncoder.encode(name, "UTF-8"));
+                urlStr = String.format("http://%s%s/%s", domain, HTTPUtility.OUTGOING_GATEWAY_DOMAIN_SUFFIX, URLEncoder.encode(name, "UTF-8"));
             } catch (UnsupportedEncodingException ex) {
                 LOG.log(Level.SEVERE, "Should not reach here, using UTF-8 encoding", ex);
             }
@@ -73,10 +72,10 @@ public class DataConsumerIP implements DataConsumer {
                 host = url.getHost();
             }
             connection = (HttpURLConnection) url.openConnection();
-            connection.setRequestMethod(HTTP_METHOD_STATIC);
-            connection.setRequestProperty(HTTP_HEADER_HOST, host);
+            connection.setRequestMethod(HTTPUtility.HTTP_METHOD_STATIC);
+            connection.setRequestProperty(HTTPUtility.HTTP_HEADER_HOST, host);
             if (exclude != null) {
-                connection.setRequestProperty(HTTP_HEADER_IF_MODIFIED_SINCE, HTTP_DATE_FORMAT.format(new Date(exclude)));
+                connection.setRequestProperty(HTTPUtility.HTTP_HEADER_IF_MODIFIED_SINCE, HTTPUtility.HTTP_DATE_FORMAT.format(new Date(exclude)));
             }
             return forwardResponse(request.getDemux(), urlStr, connection, request.getDataHandler());
         } finally {
@@ -97,11 +96,11 @@ public class DataConsumerIP implements DataConsumer {
             name = name.substring(1);
         }
         byte[] input = request.getInput();
-        if (domain.equals(CROSS_DOMAIN_HOST_IP)) {
+        if (domain.equals(HTTPUtility.CROSS_DOMAIN_HOST_IP)) {
             urlStr = "http://" + name;
         } else {
             try {
-                urlStr = String.format("http://%s%s/%s", domain, OUTGOING_GATEWAY_DOMAIN_SUFFIX, URLEncoder.encode(name, "UTF-8"));
+                urlStr = String.format("http://%s%s/%s", domain, HTTPUtility.OUTGOING_GATEWAY_DOMAIN_SUFFIX, URLEncoder.encode(name, "UTF-8"));
             } catch (UnsupportedEncodingException ex) {
                 LOG.log(Level.SEVERE, "Should not reach here, using UTF-8 encoding", ex);
             }
@@ -115,10 +114,10 @@ public class DataConsumerIP implements DataConsumer {
                 host = url.getHost();
             }
             connection = (HttpURLConnection) url.openConnection();
-            connection.setRequestMethod(HTTP_METHOD_DYNAMIC);
-            connection.setRequestProperty(HTTP_HEADER_HOST, host);
+            connection.setRequestMethod(HTTPUtility.HTTP_METHOD_DYNAMIC);
+            connection.setRequestProperty(HTTPUtility.HTTP_HEADER_HOST, host);
             connection.setUseCaches(false);
-            connection.setRequestProperty(HTTP_HEADER_CONTENT_LENGTH, Integer.toString(input.length));
+            connection.setRequestProperty(HTTPUtility.HTTP_HEADER_CONTENT_LENGTH, Integer.toString(input.length));
             connection.setDoOutput(true);
 
             try (OutputStream reqOutput = connection.getOutputStream()) {
