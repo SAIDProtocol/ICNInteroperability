@@ -160,7 +160,7 @@ public class ProviderIP {
             byte[] tmp = new byte[result.length + bodyLen];
             System.arraycopy(result, 0, tmp, 0, result.length);
             for (int i = 0, j = result.length; i < bodyLen; i++, j++) {
-                result[j] = 'a';
+                tmp[j] = 'a';
             }
             result = tmp;
         }

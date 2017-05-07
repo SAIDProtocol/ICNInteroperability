@@ -87,4 +87,5 @@ However, do not set sleep > 4000, since this is the timeout time in CCN. You wil
   - [x] MF content aggregator: (Use MF-IP GW to optimize)
 - [ ] Optimization: chunked transmission  
 - [ ] Optimization: put a global pending request table in the gw, instead of each adapter
+- [ ] Fix: When NDN responds a content larger than 1 segment, there is error. Need to put a content repository.
 
