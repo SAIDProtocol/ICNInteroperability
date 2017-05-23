@@ -27,7 +27,7 @@ public class CanonicalRequestDynamic extends CanonicalRequest {
 
     @Override
     public String toString() {
-        return String.format("CREQ_D{D=%s,N=%s,I.len=%d}", getDestDomain(), getTargetName(), input.length);
+        return String.format("CREQ_D{D=%s,N=%s,I.len=%d}", getDestDomain(), getTargetName(), input == null ? 0 : input.length);
     }
 
 }
