@@ -11,6 +11,10 @@ import edu.rutgers.winlab.icninteroperability.mf.DomainAdapterMF;
 import edu.rutgers.winlab.icninteroperability.ndn.DomainAdapterNDN;
 import edu.rutgers.winlab.jmfapi.JMFException;
 import java.io.IOException;
+import java.util.Timer;
+import java.util.TimerTask;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  *
@@ -59,12 +63,26 @@ public class RunGateway {
         GatewayTwoDomains g2d = new GatewayTwoDomains(d1, d2);
         g2d.start();
     }
+    private static final Logger LOG = Logger.getLogger(RunGateway.class.getName());
+
+    private static final TimerTask MEMORY_USAGE_REPORT_TASK = new TimerTask() {
+        @Override
+        public void run() {
+            Runtime runtime = Runtime.getRuntime();
+            runtime.gc();
+            long memory = runtime.totalMemory() - runtime.freeMemory();
+            LOG.log(Level.INFO, "Memory usage: {0}", memory);
+        }
+    };
 
     public static void main(String[] args) throws IOException, JMFException {
+        args = new String[]{"ipndn"};
         if (args.length == 0) {
             usage();
             return;
         }
+        Timer t = new Timer("MemoryUsageReport", true);
+        t.scheduleAtFixedRate(MEMORY_USAGE_REPORT_TASK, 0, 1000);
         switch (args[0]) {
             case "ipip":
                 runGatewayTwoIPs();
