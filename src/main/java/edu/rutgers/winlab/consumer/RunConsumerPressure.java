@@ -18,6 +18,7 @@ import edu.rutgers.winlab.icninteroperability.canonical.CanonicalRequestStatic;
 import edu.rutgers.winlab.jmfapi.JMFException;
 import java.io.IOException;
 import java.text.ParseException;
+import java.util.Random;
 import org.ccnx.ccn.config.ConfigurationException;
 
 /**
@@ -139,6 +140,7 @@ public class RunConsumerPressure {
         }
 
         Thread[] threads = new Thread[count];
+        Random rand = new Random(System.currentTimeMillis());
         try {
 
             DataConsumer consumer = getConsumerFromType(args[2], args[3]);
@@ -147,7 +149,7 @@ public class RunConsumerPressure {
             }
 
             for (int i = 0; i < count; i++) {
-                CanonicalRequest request = getRequest(args[1], args[4], args[5], args.length < 7 ? null : args[6], DATA_HANDLER);
+                CanonicalRequest request = getRequest(args[1], args[4], args[5] + "/" + rand.nextLong(), args.length < 7 ? null : args[6], DATA_HANDLER);
                 if (request == null) {
                     return;
                 }
