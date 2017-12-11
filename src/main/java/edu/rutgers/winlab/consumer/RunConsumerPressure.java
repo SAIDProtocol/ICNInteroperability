@@ -18,8 +18,6 @@ import edu.rutgers.winlab.icninteroperability.canonical.CanonicalRequestStatic;
 import edu.rutgers.winlab.jmfapi.JMFException;
 import java.io.IOException;
 import java.text.ParseException;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import org.ccnx.ccn.config.ConfigurationException;
 
 /**
@@ -86,6 +84,7 @@ public class RunConsumerPressure {
     private static final DataHandler DATA_HANDLER = new DataHandler() {
         @Override
         public void handleDataRetrieved(DemultiplexingEntity demux, byte[] data, int size, Long time, boolean finished) {
+            System.err.println("Handle data succeeded!!");
             synchronized (SYSTEM_OUT_NAME) {
                 successCount++;
             }
@@ -118,7 +117,7 @@ public class RunConsumerPressure {
                 synchronized (SYSTEM_OUT_NAME) {
                     failCount++;
                 }
-                Logger.getLogger(RunConsumerPressure.class.getName()).log(Level.SEVERE, null, ex);
+                System.err.println("Request data failed!!");
             }
         }
 
