@@ -85,9 +85,11 @@ public class RunConsumerPressure {
     private static final DataHandler DATA_HANDLER = new DataHandler() {
         @Override
         public void handleDataRetrieved(DemultiplexingEntity demux, byte[] data, int size, Long time, boolean finished) {
-            System.err.println("Handle data succeeded!!");
-            synchronized (SYSTEM_OUT_NAME) {
-                successCount++;
+            if (finished) {
+                System.err.println("Handle data succeeded!!");
+                synchronized (SYSTEM_OUT_NAME) {
+                    successCount++;
+                }
             }
         }
 
