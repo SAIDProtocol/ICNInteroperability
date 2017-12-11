@@ -15,6 +15,7 @@ import java.util.function.*;
 import java.util.logging.*;
 import static edu.rutgers.winlab.common.HTTPUtility.*;
 import static java.net.HttpURLConnection.*;
+import java.text.ParseException;
 
 /**
  *
@@ -64,7 +65,7 @@ public class DomainAdapterIP extends DomainAdapter {
             LOG.log(Level.INFO, String.format("[%,d] Send response to %s, host==null not supportd", System.nanoTime(), exchange.getRemoteAddress()));
             try {
                 writeQuickResponse(exchange, HTTP_NOT_IMPLEMENTED, HTTP_RESPONSE_HOST_SHOULD_NOT_BE_NULL);
-            } catch (Exception ex) {
+            } catch (IOException | RuntimeException ex) {
                 LOG.log(Level.SEVERE, String.format("[%,d] Error in writing response to %s", System.nanoTime(), exchange.getRemoteAddress()), ex);
             }
             return;
@@ -105,7 +106,7 @@ public class DomainAdapterIP extends DomainAdapter {
                 LOG.log(Level.INFO, String.format("[%,d] Send response to %s, action (%s) not supportd", System.nanoTime(), exchange.getRemoteAddress(), requestMethod));
                 try {
                     writeQuickResponse(exchange, HTTP_NOT_IMPLEMENTED, HTTP_RESPONSE_UNSUPPORTED_ACTION_FORMAT, requestMethod);
-                } catch (Exception ex) {
+                } catch (IOException | RuntimeException ex) {
                     LOG.log(Level.SEVERE, String.format("[%,d] Error in writing response to %s", System.nanoTime(), exchange.getRemoteAddress()), ex);
                 }
             }
@@ -118,7 +119,7 @@ public class DomainAdapterIP extends DomainAdapter {
         Long exclude = null;
         try {
             exclude = HTTP_DATE_FORMAT.parse(ifModifiedSince).getTime();
-        } catch (Exception ex) {
+        } catch (ParseException | RuntimeException ex) {
             // if cannot parse date, see it as NULL
         }
         CanonicalRequestStatic req = new CanonicalRequestStatic(domain, name, exclude, this);
@@ -131,7 +132,7 @@ public class DomainAdapterIP extends DomainAdapter {
             handler = pendingRequests.get(demux);
             if (handler == null) {
                 needRaise = true;
-                pendingRequests.put(demux, handler = new ResponseHandler());
+                pendingRequests.put(demux, handler = new ResponseHandler(this::incomingRequestAdded, this::incomingRequestRemoved));
             }
             handler.addClient(exchange);
         }
@@ -159,7 +160,7 @@ public class DomainAdapterIP extends DomainAdapter {
             try {
                 LOG.log(Level.SEVERE, String.format("[%,d] Error in reading client body", System.nanoTime()), ex);
                 writeQuickResponse(exchange, HTTP_BAD_REQUEST, HTTP_RESPONSE_ERROR_IN_READING_REQUEST_BODY, ex.toString());
-            } catch (Exception ex2) {
+            } catch (IOException | RuntimeException ex2) {
                 LOG.log(Level.SEVERE, String.format("[%,d] Error in writing 400 to client %s", System.nanoTime(), exchange.getRemoteAddress()), ex2);
             }
             return;
@@ -173,7 +174,7 @@ public class DomainAdapterIP extends DomainAdapter {
         synchronized (pendingRequests) {
             handler = pendingRequests.get(demux);
             if (handler == null) {
-                pendingRequests.put(demux, handler = new ResponseHandler());
+                pendingRequests.put(demux, handler = new ResponseHandler(this::incomingRequestAdded, this::incomingRequestRemoved));
                 handler.addClient(exchange);
                 LOG.log(Level.INFO, String.format("[%,d] Got canonical request: %s, need raise: %b", System.nanoTime(), req, true));
                 raiseRequest(req);
@@ -182,7 +183,7 @@ public class DomainAdapterIP extends DomainAdapter {
                 try {
                     LOG.log(Level.SEVERE, String.format("[%,d] Having duplicate demux %s for dynamic request", System.nanoTime(), demux));
                     writeQuickResponse(exchange, HTTP_INTERNAL_ERROR, HTTP_RESPONSE_FAIL_IN_PROCESS, "Having duplicate demux for dynamic request", demux);
-                } catch (Exception ex2) {
+                } catch (IOException | RuntimeException ex2) {
                     LOG.log(Level.SEVERE, String.format("[%,d] Error in writing 500 to client %s", System.nanoTime(), exchange.getRemoteAddress()), ex2);
                 }
             }
@@ -204,7 +205,7 @@ public class DomainAdapterIP extends DomainAdapter {
         if (handler != null) {
             try {
                 handler.addData(data, size, time, finished);
-            } catch (Exception ex) {
+            } catch (IOException | RuntimeException ex) {
                 LOG.log(Level.SEVERE, String.format("[%,d] Error in writing data to %s", System.nanoTime(), demux), ex);
             }
         }
@@ -226,8 +227,16 @@ public class DomainAdapterIP extends DomainAdapter {
         private Long time = null;
         private boolean responseFinished = false;
 
+        private final IntConsumer incomingRequestAddedHandler, incomingRequestRemovedHandler;
+
+        public ResponseHandler(IntConsumer incomingRequestAddedHandler, IntConsumer incomingRequestRemovedHandler) {
+            this.incomingRequestAddedHandler = incomingRequestAddedHandler;
+            this.incomingRequestRemovedHandler = incomingRequestRemovedHandler;
+        }
+
         public synchronized void addClient(HttpExchange exchange) {
             pendingClients.add(exchange);
+            incomingRequestAddedHandler.accept(1);
         }
 
         public synchronized void handleDataFailed() {
@@ -239,10 +248,11 @@ public class DomainAdapterIP extends DomainAdapter {
                 try {
                     writeNotModified(pendingClient);
                     LOG.log(Level.INFO, String.format("[%,d] Wrote Not Modified to %s", System.nanoTime(), pendingClient.getRemoteAddress()));
-                } catch (Exception ex) {
+                } catch (IOException | RuntimeException ex) {
                     LOG.log(Level.SEVERE, String.format("[%,d] Error in writing response to %s", System.nanoTime(), pendingClient.getRemoteAddress()), ex);
                 }
             });
+            incomingRequestRemovedHandler.accept(pendingClients.size());
         }
 
         public synchronized void addData(byte[] data, int size, Long time, boolean finished) throws IOException {
@@ -261,6 +271,7 @@ public class DomainAdapterIP extends DomainAdapter {
             if (finished) {
                 this.responseFinished = true;
                 writeToClients();
+                incomingRequestRemovedHandler.accept(pendingClients.size());
             }
         }
 
@@ -271,7 +282,7 @@ public class DomainAdapterIP extends DomainAdapter {
                 try {
                     writeBody(pendingClient, buf, responseSize, time == null ? null : new Date(time));
                     LOG.log(Level.INFO, String.format("[%,d] Wrote response to %s", System.nanoTime(), pendingClient.getRemoteAddress()));
-                } catch (Exception ex) {
+                } catch (IOException | RuntimeException ex) {
                     LOG.log(Level.SEVERE, String.format("[%,d] Error in writing response to %s", System.nanoTime(), pendingClient.getRemoteAddress()), ex);
                 }
             });
@@ -294,6 +305,7 @@ public class DomainAdapterIP extends DomainAdapter {
             if (handler == null) {
                 ongoingRequests.put(demux, handler = new HttpRequestHandler(request, this::httpRequestFinishedHandler));
                 handler.startRequest();
+                outgoingRequestAdded(1);
             } else {
                 handler.addDataHandler(request.getDataHandler());
             }
@@ -303,6 +315,7 @@ public class DomainAdapterIP extends DomainAdapter {
     private void httpRequestFinishedHandler(DemultiplexingEntity demux) {
         synchronized (ongoingRequests) {
             ongoingRequests.remove(demux);
+            outgoingRequestRemoved(1);
         }
     }
 
@@ -373,7 +386,7 @@ public class DomainAdapterIP extends DomainAdapter {
                 try {
                     responseTime = HTTP_DATE_FORMAT.parse(lastModified).getTime();
                     LOG.log(Level.INFO, String.format("[%,d] Get content demux:%s URL:%s LastModified:%d", System.nanoTime(), demux, urlStr, responseTime));
-                } catch (Exception e) {
+                } catch (ParseException | RuntimeException e) {
 
                 }
                 byte[] buf = new byte[1500];
@@ -412,7 +425,7 @@ public class DomainAdapterIP extends DomainAdapter {
 
                 forwardResponse(demux, urlStr, connection);
 
-            } catch (Exception ex) {
+            } catch (IOException | RuntimeException ex) {
                 LOG.log(Level.SEVERE, String.format("[%,d] Error in retrieving content in IP demux:%s URL:%s", System.nanoTime(), demux, urlStr), ex);
                 handlers.forEach(handler -> handler.handleDataFailed(demux));
             } finally {
@@ -442,7 +455,7 @@ public class DomainAdapterIP extends DomainAdapter {
                 }
                 forwardResponse(demux, urlStr, connection);
 
-            } catch (Exception ex) {
+            } catch (IOException | RuntimeException ex) {
                 LOG.log(Level.SEVERE, String.format("[%,d] Error in retrieving content in IP demux:%s URL:%s", System.nanoTime(), demux, urlStr), ex);
                 handlers.forEach(handler -> handler.handleDataFailed(demux));
             } finally {

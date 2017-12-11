@@ -27,6 +27,7 @@ import java.util.LinkedList;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.IntConsumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -117,7 +118,7 @@ public class DomainAdapterMF extends DomainAdapter {
                             handler = pendingRequests.get(demux);
                             if (handler == null) {
                                 needRaise = true;
-                                pendingRequests.put(demux, handler = new ResponseHandler());
+                                pendingRequests.put(demux, handler = new ResponseHandler(DomainAdapterMF.this::incomingRequestAdded, DomainAdapterMF.this::incomingRequestRemoved));
                             }
                             handler.addClient(new ClientIdentifier(domainGUID, handle, sGUID, request.RequestID));
                         }
@@ -132,7 +133,7 @@ public class DomainAdapterMF extends DomainAdapter {
                         synchronized (pendingRequests) {
                             handler = pendingRequests.get(demux);
                             if (handler == null) {
-                                pendingRequests.put(demux, handler = new ResponseHandler());
+                                pendingRequests.put(demux, handler = new ResponseHandler(DomainAdapterMF.this::incomingRequestAdded, DomainAdapterMF.this::incomingRequestRemoved));
                                 handler.addClient(new ClientIdentifier(domainGUID, handle, sGUID, request.RequestID));
                                 LOG.log(Level.INFO, String.format("[%,d] Got canonical request: %s, need raise: %b", System.nanoTime(), req, true));
                                 raiseRequest(req);
@@ -141,7 +142,7 @@ public class DomainAdapterMF extends DomainAdapter {
                                 try {
                                     LOG.log(Level.SEVERE, String.format("[%,d] Having duplicate demux %s for dynamic request", System.nanoTime(), demux));
                                     writeBody(handle, sGUID, request.RequestID, HttpURLConnection.HTTP_INTERNAL_ERROR, System.currentTimeMillis(), String.format(HTTPUtility.HTTP_RESPONSE_FAIL_IN_PROCESS, "Having duplicate demux for dynamic request", demux).getBytes(), 0);
-                                } catch (Exception ex2) {
+                                } catch (JMFException | RuntimeException ex2) {
                                     LOG.log(Level.SEVERE, String.format("[%,d] Error in writing 500 to client %s %d", System.nanoTime(), sGUID, request.RequestID), ex2);
                                 }
                             }
@@ -151,7 +152,7 @@ public class DomainAdapterMF extends DomainAdapter {
                         writeBody(handle, sGUID, request.RequestID, HttpURLConnection.HTTP_NOT_IMPLEMENTED, System.currentTimeMillis(), String.format(HTTPUtility.HTTP_RESPONSE_UNSUPPORTED_ACTION_FORMAT, request.Method).getBytes(), 0);
                     }
                 }
-            } catch (JMFException ex) {
+            } catch (JMFException | RuntimeException ex) {
                 LOG.log(Level.SEVERE, String.format("[%,d] Error in reading content from JMFAPI, contentGUID:%s, exitting", System.nanoTime(), domainGUID), ex);
             }
         }
@@ -184,7 +185,7 @@ public class DomainAdapterMF extends DomainAdapter {
         if (handler != null) {
             try {
                 handler.addData(data, size, time, finished);
-            } catch (Exception ex) {
+            } catch (IOException | RuntimeException ex) {
                 LOG.log(Level.SEVERE, String.format("[%,d] Error in writing data to %s", System.nanoTime(), demux), ex);
             }
         }
@@ -238,8 +239,16 @@ public class DomainAdapterMF extends DomainAdapter {
         private Long time = null;
         private boolean responseFinished = false;
 
+        private final IntConsumer incomingRequestAddedHandler, incomingRequestRemovedHandler;
+
+        public ResponseHandler(IntConsumer incomingRequestAddedHandler, IntConsumer incomingRequestRemovedHandler) {
+            this.incomingRequestAddedHandler = incomingRequestAddedHandler;
+            this.incomingRequestRemovedHandler = incomingRequestRemovedHandler;
+        }
+
         public synchronized void addClient(ClientIdentifier exchange) {
             pendingClients.add(exchange);
+            incomingRequestAddedHandler.accept(1);
         }
 
         public synchronized void handleDataFailed() {
@@ -250,10 +259,11 @@ public class DomainAdapterMF extends DomainAdapter {
             pendingClients.forEach((pendingClient) -> {
                 try {
                     pendingClient.writeNotModified();
-                } catch (Exception ex) {
+                } catch (JMFException | RuntimeException ex) {
                     LOG.log(Level.SEVERE, String.format("[%,d] Error in writing response to %s", System.nanoTime(), pendingClient), ex);
                 }
             });
+            incomingRequestRemovedHandler.accept(pendingClients.size());
         }
 
         public synchronized void addData(byte[] data, int size, Long time, boolean finished) throws IOException {
@@ -272,6 +282,7 @@ public class DomainAdapterMF extends DomainAdapter {
             if (finished) {
                 this.responseFinished = true;
                 writeToClients();
+                incomingRequestRemovedHandler.accept(pendingClients.size());
             }
         }
 
@@ -281,7 +292,7 @@ public class DomainAdapterMF extends DomainAdapter {
             pendingClients.forEach((pendingClient) -> {
                 try {
                     pendingClient.writeBody(buf, responseSize, time);
-                } catch (Exception ex) {
+                } catch (JMFException | RuntimeException ex) {
                     LOG.log(Level.SEVERE, String.format("[%,d] Error in writing response to %s", System.nanoTime(), pendingClient), ex);
                 }
             });
@@ -314,6 +325,7 @@ public class DomainAdapterMF extends DomainAdapter {
                 LOG.log(Level.INFO, String.format("[%,d] Reusing existing demux: %s", System.nanoTime(), demux));
             }
             requests.add(request);
+            outgoingRequestAdded(1);
         }
         if (reqID == null) {
             return;
@@ -353,6 +365,7 @@ public class DomainAdapterMF extends DomainAdapter {
             }
             LinkedList<CanonicalRequest> requests = ongoingRequests.remove(demux);
             requests.forEach(r -> r.getDataHandler().handleDataFailed(demux));
+            outgoingRequestRemoved(requests.size());
         }
     }
 
@@ -386,9 +399,8 @@ public class DomainAdapterMF extends DomainAdapter {
                     } else {
                         requests.forEach(r -> r.getDataHandler().handleDataFailed(demux));
                     }
-
+                    outgoingRequestRemoved(requests.size());
                 }
-
             } catch (JMFException ex) {
                 LOG.log(Level.SEVERE, "JMFException", ex);
             }

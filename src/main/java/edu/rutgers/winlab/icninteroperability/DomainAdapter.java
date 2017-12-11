@@ -49,6 +49,18 @@ public abstract class DomainAdapter implements DataHandler {
     public abstract void start();
 
     public abstract void stop();
+    
+    protected void incomingRequestAdded(int count) {
+    }
+    
+    protected void incomingRequestRemoved(int count) {
+    }
+    
+    protected void outgoingRequestAdded(int count) {
+    }
+    
+    protected void outgoingRequestRemoved(int count) {
+    }
 
     @Override
     public String toString() {

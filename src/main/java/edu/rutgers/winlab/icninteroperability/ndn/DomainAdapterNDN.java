@@ -18,7 +18,6 @@ import org.ccnx.ccn.io.*;
 import org.ccnx.ccn.profiles.*;
 import org.ccnx.ccn.protocol.*;
 import static edu.rutgers.winlab.common.NDNUtility.*;
-import edu.rutgers.winlab.icninteroperability.ip.DomainAdapterIP;
 import java.net.URISyntaxException;
 import org.ccnx.ccn.impl.support.Tuple;
 import static org.ccnx.ccn.profiles.VersioningProfile.hasTerminalVersion;
@@ -99,7 +98,7 @@ public class DomainAdapterNDN extends DomainAdapter {
             handler = pendingRequests.get(demux);
             if (handler == null) {
                 needRaise = true;
-                pendingRequests.put(demux, handler = new ResponseHandler());
+                pendingRequests.put(demux, handler = new ResponseHandler(this::incomingRequestAdded, this::incomingRequestRemoved));
             }
             handler.addClient(interest);
         }
@@ -143,7 +142,7 @@ public class DomainAdapterNDN extends DomainAdapter {
         synchronized (pendingRequests) {
             handler = pendingRequests.get(demux);
             if (handler == null) {
-                pendingRequests.put(demux, handler = new ResponseHandler());
+                pendingRequests.put(demux, handler = new ResponseHandler(this::incomingRequestAdded, this::incomingRequestRemoved));
                 handler.addClient(interest);
                 LOG.log(Level.INFO, String.format("[%,d] Got canonical request: %s, need raise: %b", System.nanoTime(), req, true));
                 raiseRequest(req);
@@ -171,7 +170,7 @@ public class DomainAdapterNDN extends DomainAdapter {
         if (handler != null) {
             try {
                 handler.addData(data, size, time, finished);
-            } catch (Exception ex) {
+            } catch (IOException | RuntimeException ex) {
                 LOG.log(Level.SEVERE, String.format("[%,d] Error in writing data to %s", System.nanoTime(), demux), ex);
             }
         }
@@ -193,6 +192,13 @@ public class DomainAdapterNDN extends DomainAdapter {
         private Long time = null;
         private boolean responseFinished = false;
 
+        private final IntConsumer incomingRequestAddedHandler, incomingRequestRemovedHandler;
+
+        public ResponseHandler(IntConsumer incomingRequestAddedHandler, IntConsumer incomingRequestRemovedHandler) {
+            this.incomingRequestAddedHandler = incomingRequestAddedHandler;
+            this.incomingRequestRemovedHandler = incomingRequestRemovedHandler;
+        }
+
         public synchronized void addClient(Interest request) {
             CCNOutputStream cos = null;
             if (hasTerminalVersion(request.name())) {
@@ -202,17 +208,18 @@ public class DomainAdapterNDN extends DomainAdapter {
                     if (pendingResponse.size() > 0) {
                         cos.write(pendingResponse.toByteArray());
                     }
-                } catch (Exception e) {
+                } catch (IOException | RuntimeException e) {
                     LOG.log(Level.WARNING, String.format("[%,d] Error in creating output for %s", System.nanoTime(), request), e);
                 }
             } else if (time != null) {
                 try {
                     cos = createOutputStreamForInterest(request);
-                } catch (Exception e) {
+                } catch (IOException | RuntimeException e) {
                     LOG.log(Level.WARNING, String.format("[%,d] Error in creating output for %s", System.nanoTime(), request), e);
                 }
             }
             pendingClients.put(request, new CCNOutputStream[]{cos});
+            incomingRequestAddedHandler.accept(1);
         }
 
         private CCNOutputStream createOutputStreamForInterest(Interest request) throws IOException {
@@ -240,10 +247,11 @@ public class DomainAdapterNDN extends DomainAdapter {
                     if (cos != null) {
                         cos.close();
                     }
-                } catch (Exception e) {
+                } catch (IOException | RuntimeException e) {
                     LOG.log(Level.WARNING, String.format("[%,d] Error in closing output for %s", System.nanoTime(), pendingClient.getKey()), e);
                 }
             });
+            incomingRequestRemovedHandler.accept(pendingClients.size());
         }
 
         public synchronized void addData(byte[] data, int size, Long time, boolean finished) throws IOException {
@@ -284,6 +292,7 @@ public class DomainAdapterNDN extends DomainAdapter {
             pendingResponse.write(data, 0, size);
             if (finished) {
                 this.responseFinished = true;
+                incomingRequestRemovedHandler.accept(pendingClients.size());
             }
         }
     }
@@ -303,6 +312,7 @@ public class DomainAdapterNDN extends DomainAdapter {
             if (handler == null) {
                 ongoingRequests.put(demux, handler = new NDNRequestHandler(request, this::ndnRequestFinishedHandler));
                 handler.startRequest();
+                outgoingRequestAdded(1);
             } else {
                 handler.addDataHandler(request.getDataHandler());
             }
@@ -312,6 +322,7 @@ public class DomainAdapterNDN extends DomainAdapter {
     private void ndnRequestFinishedHandler(DemultiplexingEntity demux) {
         synchronized (ongoingRequests) {
             ongoingRequests.remove(demux);
+            outgoingRequestRemoved(1);
         }
     }
 
