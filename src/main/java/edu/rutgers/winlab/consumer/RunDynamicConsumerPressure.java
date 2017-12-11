@@ -16,24 +16,23 @@ import edu.rutgers.winlab.icninteroperability.canonical.CanonicalRequest;
 import edu.rutgers.winlab.icninteroperability.canonical.CanonicalRequestDynamic;
 import edu.rutgers.winlab.icninteroperability.canonical.CanonicalRequestStatic;
 import edu.rutgers.winlab.jmfapi.JMFException;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.text.ParseException;
-import java.util.Date;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import org.ccnx.ccn.config.ConfigurationException;
 
 /**
  *
- * @author ubuntu
+ * @author root
  */
-public class RunConsumer {
+public class RunDynamicConsumerPressure {
 
     public static final String SYSTEM_OUT_NAME = "System.out";
 
     private static void usage() {
-        System.err.printf("Usage: java %s <output> <static|dynamic> <consumerType> <consumerName> <dstDomain> <name> <[exclude|input]>%n", RunConsumer.class.getName());
-        System.err.printf("    output: File name for output. print to System.out if output==%s%n", SYSTEM_OUT_NAME);
+        System.err.printf("Usage: java %s <count> <static|dynamic> <consumerType> <consumerName> <dstDomain> <name> <[exclude|input]>%n", RunConsumer.class.getName());
+        System.err.printf("    count: # of requests generated%n");
         System.err.printf("    consumerType dstDomain: %s|%s|%s%n", CROSS_DOMAIN_HOST_IP, CROSS_DOMAIN_HOST_NDN, CROSS_DOMAIN_HOST_MF);
         System.err.printf("    for static, the last component would be seen as exclude [using HTTP date format]. if cannot be parsed, null will be used%n");
         System.err.printf("    for dynamic, the last component would be seen as input. Empty string will be used if this component does not exist%n");
@@ -82,50 +81,84 @@ public class RunConsumer {
         }
     }
 
-    public static void main(String[] args) {
+    private static int successCount = 0, failCount = 0;
+
+    private static final DataHandler DATA_HANDLER = new DataHandler() {
+        @Override
+        public synchronized void handleDataRetrieved(DemultiplexingEntity demux, byte[] data, int size, Long time, boolean finished) {
+            successCount++;
+        }
+
+        @Override
+        public synchronized void handleDataFailed(DemultiplexingEntity demux) {
+            System.err.println("Handle data failed!!");
+            failCount++;
+        }
+    };
+
+    private static class RequestThread implements Runnable {
+
+        private final DataConsumer consumer;
+        private final CanonicalRequest request;
+
+        public RequestThread(DataConsumer consumer, CanonicalRequest request) {
+            this.consumer = consumer;
+            this.request = request;
+        }
+
+        @Override
+        public void run() {
+            try {
+                consumer.request(request);
+            } catch (IOException | RuntimeException ex) {
+                Logger.getLogger(RunDynamicConsumerPressure.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+
+    }
+
+    public static void main(String[] args) throws InterruptedException {
         suppressNDNLog();
         if (args.length < 6) {
             usage();
             return;
         }
+        int count;
+
         try {
-            try (OutputStream os = args[0].equals(SYSTEM_OUT_NAME) ? System.out : new FileOutputStream(args[0])) {
-                DataHandler handler = new DataHandler() {
-                    @Override
-                    public void handleDataRetrieved(DemultiplexingEntity demux, byte[] data, int size, Long time, boolean finished) {
-                        try {
-                            os.write(data, 0, size);
-                            if (finished) {
-                                os.flush();
-                            }
-                        } catch (IOException ex) {
-                            ex.printStackTrace(System.err);
-                        }
-                    }
+            count = Integer.parseInt(args[0]);
+        } catch (RuntimeException e) {
+            usage();
+            return;
+        }
 
-                    @Override
-                    public void handleDataFailed(DemultiplexingEntity demux) {
-                        System.err.println("Handle data failed!!");
-                    }
-                };
+        Thread[] threads = new Thread[count];
+        try {
 
-                DataConsumer consumer = getConsumerFromType(args[2], args[3]);
-                if (consumer == null) {
-                    return;
-                }
-                CanonicalRequest request = getRequest(args[1], args[4], args[5], args.length < 7 ? null : args[6], handler);
+            DataConsumer consumer = getConsumerFromType(args[2], args[3]);
+            if (consumer == null) {
+                return;
+            }
+
+            for (int i = 0; i < count; i++) {
+                CanonicalRequest request = getRequest(args[1], args[4], args[5], args.length < 7 ? null : args[6], DATA_HANDLER);
                 if (request == null) {
                     return;
                 }
-                Long version = consumer.request(request);
-                System.err.printf("Version is: %s (%d)%n", version == null ? null : HTTP_DATE_FORMAT.format(new Date(version)), version);
-
-                os.flush();
+                threads[i] = new Thread(new RequestThread(consumer, request));
             }
+
         } catch (IOException | ConfigurationException | JMFException | RuntimeException e) {
             e.printStackTrace(System.err);
         }
+        for (int i = 0; i < count; i++) {
+            threads[i].start();
+        }
+        for (int i = 0; i < count; i++) {
+            threads[i].join();
+        }
+        System.out.printf("Succeed: %d, failed: %d%n", successCount, failCount);
         System.exit(0);
-
     }
+
 }
