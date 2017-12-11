@@ -26,7 +26,7 @@ import org.ccnx.ccn.config.ConfigurationException;
  *
  * @author root
  */
-public class RunDynamicConsumerPressure {
+public class RunConsumerPressure {
 
     public static final String SYSTEM_OUT_NAME = "System.out";
 
@@ -85,14 +85,18 @@ public class RunDynamicConsumerPressure {
 
     private static final DataHandler DATA_HANDLER = new DataHandler() {
         @Override
-        public synchronized void handleDataRetrieved(DemultiplexingEntity demux, byte[] data, int size, Long time, boolean finished) {
-            successCount++;
+        public void handleDataRetrieved(DemultiplexingEntity demux, byte[] data, int size, Long time, boolean finished) {
+            synchronized (SYSTEM_OUT_NAME) {
+                successCount++;
+            }
         }
 
         @Override
-        public synchronized void handleDataFailed(DemultiplexingEntity demux) {
+        public void handleDataFailed(DemultiplexingEntity demux) {
             System.err.println("Handle data failed!!");
-            failCount++;
+            synchronized (SYSTEM_OUT_NAME) {
+                failCount++;
+            }
         }
     };
 
@@ -111,7 +115,10 @@ public class RunDynamicConsumerPressure {
             try {
                 consumer.request(request);
             } catch (IOException | RuntimeException ex) {
-                Logger.getLogger(RunDynamicConsumerPressure.class.getName()).log(Level.SEVERE, null, ex);
+                synchronized (SYSTEM_OUT_NAME) {
+                    failCount++;
+                }
+                Logger.getLogger(RunConsumerPressure.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
 
