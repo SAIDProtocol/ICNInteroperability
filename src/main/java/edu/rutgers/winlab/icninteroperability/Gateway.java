@@ -72,7 +72,7 @@ public class Gateway {
     }
 
     private void handleRequestFromAdapter(DomainAdapter adapter, CanonicalRequest request) {
-        LOG.log(Level.INFO, String.format("[%,d] put request %s from %s to queue", System.nanoTime(), request, adapter));
+        LOG.log(Level.INFO, () -> String.format("[%,d] put request %s from %s to queue", System.nanoTime(), request, adapter));
         requests.add(new RequestEntry(adapter, request));
     }
 
@@ -88,9 +88,10 @@ public class Gateway {
             if (request == null) {
                 continue;
             }
-            LOG.log(Level.INFO, String.format("[%,d] got request %s from %s in queue", System.nanoTime(), request.getRequest(), request.getSrc()));
-            DomainAdapter destination = routing.apply(request.getSrc(), request.getRequest());
-            LOG.log(Level.INFO, String.format("[%,d] forward %s from %s to %s", System.nanoTime(), request.getRequest(), request.getSrc(), destination));
+            final RequestEntry tmpRequest = request;
+            LOG.log(Level.INFO, () -> String.format("[%,d] got request %s from %s in queue", System.nanoTime(), tmpRequest.getRequest(), tmpRequest.getSrc()));
+            final DomainAdapter destination = routing.apply(request.getSrc(), request.getRequest());
+            LOG.log(Level.INFO, () -> String.format("[%,d] forward %s from %s to %s", System.nanoTime(), tmpRequest.getRequest(), tmpRequest.getSrc(), destination));
             destination.handleRequest(request.getRequest());
         }
     }

@@ -11,6 +11,7 @@ import edu.rutgers.winlab.icninteroperability.*;
 import edu.rutgers.winlab.icninteroperability.canonical.*;
 import java.io.*;
 import java.net.*;
+import java.text.ParseException;
 import java.util.*;
 import java.util.logging.*;
 
@@ -27,11 +28,11 @@ public class DataConsumerIP implements DataConsumer {
         if (connection.getResponseCode() != HTTP_OK) {
             throw new IOException("Response code is not 200 OK!");
         } else {
-            String lastModified = connection.getHeaderField(HTTP_HEADER_LAST_MODIFIED);
+            final String lastModified = connection.getHeaderField(HTTP_HEADER_LAST_MODIFIED);
             try {
-                responseTime = HTTP_DATE_FORMAT.parse(lastModified).getTime();
-                LOG.log(Level.INFO, String.format("[%,d] Get content URL:%s LastModified:%s (%d)", System.nanoTime(), urlStr, lastModified, responseTime));
-            } catch (Exception e) {
+                final long t = responseTime = HTTP_DATE_FORMAT.parse(lastModified).getTime();
+                LOG.log(Level.INFO, () -> String.format("[%,d] Get content URL:%s LastModified:%s (%d)", System.nanoTime(), urlStr, lastModified, t));
+            } catch (ParseException | RuntimeException e) {
             }
             byte[] buf = new byte[1500];
             try (InputStream is = connection.getInputStream()) {
@@ -41,7 +42,7 @@ public class DataConsumerIP implements DataConsumer {
                 }
                 output.handleDataRetrieved(demux, buf, 0, responseTime, true);
             }
-            LOG.log(Level.INFO, String.format("[%,d] Finished getting content URL:%s", System.nanoTime(), urlStr));
+            LOG.log(Level.INFO, () -> String.format("[%,d] Finished getting content URL:%s", System.nanoTime(), urlStr));
         }
         return responseTime;
     }
@@ -66,7 +67,8 @@ public class DataConsumerIP implements DataConsumer {
             host = domain;
         }
         HttpURLConnection connection = null;
-        LOG.log(Level.INFO, String.format("[%,d] Start getting content request:%s URL:%s", System.nanoTime(), request, urlStr));
+        final String tmpUrlStr = urlStr;
+        LOG.log(Level.INFO, () -> String.format("[%,d] Start getting content request:%s URL:%s", System.nanoTime(), request, tmpUrlStr));
         try {
             URL url = new URL(urlStr);
             if (host == null) {
@@ -108,7 +110,8 @@ public class DataConsumerIP implements DataConsumer {
             host = domain;
         }
         HttpURLConnection connection = null;
-        LOG.log(Level.INFO, String.format("[%,d] Start getting content request: %s URL:%s", System.nanoTime(), request, urlStr));
+        final String tmpUrlStr = urlStr;
+        LOG.log(Level.INFO, () -> String.format("[%,d] Start getting content request: %s URL:%s", System.nanoTime(), request, tmpUrlStr));
         try {
             URL url = new URL(urlStr);
             if (host == null) {

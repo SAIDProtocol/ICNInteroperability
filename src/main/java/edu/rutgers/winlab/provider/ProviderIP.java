@@ -13,6 +13,7 @@ import java.util.concurrent.*;
 import java.util.logging.*;
 import static edu.rutgers.winlab.common.HTTPUtility.*;
 import static java.net.HttpURLConnection.*;
+import java.text.ParseException;
 
 /**
  *
@@ -47,7 +48,7 @@ public class ProviderIP {
                 break;
             }
             default: {
-                LOG.log(Level.INFO, String.format("[%,d] Send response to %s, action (%s) not supportd", System.nanoTime(), exchange.getRemoteAddress(), requestMethod));
+                LOG.log(Level.INFO, () -> String.format("[%,d] Send response to %s, action (%s) not supportd", System.nanoTime(), exchange.getRemoteAddress(), requestMethod));
                 try {
                     writeQuickResponse(exchange, HTTP_NOT_IMPLEMENTED, HTTP_RESPONSE_UNSUPPORTED_ACTION_FORMAT, requestMethod);
                 } catch (IOException ex) {
@@ -58,23 +59,24 @@ public class ProviderIP {
     }
 
     private void handleStaticContent(HttpExchange exchange) {
-        String uri = exchange.getRequestURI().toString();
+        final String uri = exchange.getRequestURI().toString();
         String ifModifiedSince = exchange.getRequestHeaders().getFirst(HTTP_HEADER_IF_MODIFIED_SINCE);
         Long exclude = null;
         try {
             exclude = HTTP_DATE_FORMAT.parse(ifModifiedSince).getTime();
-        } catch (Exception ex) {
+        } catch (ParseException | RuntimeException ex) {
             // if cannot parse date, see it as NULL
         }
-        File f = new File(folder, uri);
+        final File f = new File(folder, uri);
         long lastModified = f.lastModified();
         // round the time to the next second
         lastModified = lastModified / 1000 * 1000 + ((lastModified % 1000 == 0) ? 0 : 1000);
 
-        LOG.log(Level.INFO, String.format("[%,d] Received static request URI:%s remote:%s f:%s exclude:%d", System.nanoTime(), uri, exchange.getRemoteAddress(), f, exclude));
+        final Long tmpExclude = exclude;
+        LOG.log(Level.INFO, () -> String.format("[%,d] Received static request URI:%s remote:%s f:%s exclude:%d", System.nanoTime(), uri, exchange.getRemoteAddress(), f, tmpExclude));
         if (!f.isFile()) {
             try {
-                LOG.log(Level.INFO, String.format("[%,d] File not exist write 404 URI:%s remote:%s", System.nanoTime(), uri, exchange.getRemoteAddress()));
+                LOG.log(Level.INFO, () -> String.format("[%,d] File not exist write 404 URI:%s remote:%s", System.nanoTime(), uri, exchange.getRemoteAddress()));
                 writeQuickResponse(exchange, HTTP_NOT_FOUND, HTTP_RESPONSE_FILE_NOT_FOUND_FORMAT, uri);
             } catch (IOException ex) {
                 LOG.log(Level.SEVERE, String.format("[%,d] Error in writing 404 to client %s", System.nanoTime(), exchange.getRemoteAddress()), ex);
@@ -91,14 +93,15 @@ public class ProviderIP {
 
         if (exclude != null && exclude >= lastModified) {
             try {
-                LOG.log(Level.INFO, String.format("[%,d] File not modified write 304 URI:%s remote:%s f:%s exclude:%d", System.nanoTime(), uri, exchange.getRemoteAddress(), f, exclude));
+                LOG.log(Level.INFO, () -> String.format("[%,d] File not modified write 304 URI:%s remote:%s f:%s exclude:%d", System.nanoTime(), uri, exchange.getRemoteAddress(), f, tmpExclude));
                 writeNotModified(exchange);
             } catch (IOException ex) {
                 LOG.log(Level.SEVERE, String.format("[%,d] Error in writing 304 to client %s", System.nanoTime(), exchange.getRemoteAddress()), ex);
             }
         } else {
             try (FileInputStream fis = new FileInputStream(f)) {
-                LOG.log(Level.INFO, String.format("[%,d] Write file to client URI:%s remote:%s f:%s last-modified:%d, len:%d", System.nanoTime(), uri, exchange.getRemoteAddress(), f, lastModified, f.length()));
+                final long tmpLastModified = lastModified;
+                LOG.log(Level.INFO, () -> String.format("[%,d] Write file to client URI:%s remote:%s f:%s last-modified:%d, len:%d", System.nanoTime(), uri, exchange.getRemoteAddress(), f, tmpLastModified, f.length()));
                 writeBody(exchange, fis, f.length(), new Date(lastModified));
             } catch (IOException ex) {
                 LOG.log(Level.SEVERE, String.format("[%,d] Error in writing file to client %s", System.nanoTime(), exchange.getRemoteAddress()), ex);
@@ -113,7 +116,7 @@ public class ProviderIP {
             buf = readRequestBody(exchange);
             if (buf == null) {
                 try {
-                    LOG.log(Level.INFO, String.format("[%,d] Content-Length field missing in header, respond not supported", System.nanoTime()));
+                    LOG.log(Level.INFO, () -> String.format("[%,d] Content-Length field missing in header, respond not supported", System.nanoTime()));
                     writeQuickResponse(exchange, HTTP_NOT_IMPLEMENTED, HTTP_RESPONSE_CONTENT_LENGTH_SHOULD_NOT_BE_NULL);
                 } catch (IOException ex) {
                     LOG.log(Level.SEVERE, String.format("[%,d] Error in writing 501 to client %s", System.nanoTime(), exchange.getRemoteAddress()), ex);
@@ -124,28 +127,28 @@ public class ProviderIP {
             try {
                 LOG.log(Level.SEVERE, String.format("[%,d] Error in reading client body", System.nanoTime()), ex);
                 writeQuickResponse(exchange, HTTP_BAD_REQUEST, HTTP_RESPONSE_ERROR_IN_READING_REQUEST_BODY, ex.toString());
-            } catch (Exception ex2) {
+            } catch (IOException | RuntimeException ex2) {
                 LOG.log(Level.SEVERE, String.format("[%,d] Error in writing 400 to client %s", System.nanoTime(), exchange.getRemoteAddress()), ex2);
             }
             return;
         }
-        LOG.log(Level.INFO, String.format("[%,d] Received dynamic request URI:%s remote:%s reqBodyLen:%d", System.nanoTime(), uri, exchange.getRemoteAddress(), buf.length));
+        LOG.log(Level.INFO, () -> String.format("[%,d] Received dynamic request URI:%s remote:%s reqBodyLen:%d", System.nanoTime(), uri, exchange.getRemoteAddress(), buf.length));
 
         String queryString = new String(buf);
-        LOG.log(Level.INFO, String.format("[%,d] request body: %s", System.nanoTime(), queryString));
+        LOG.log(Level.INFO, () -> String.format("[%,d] request body: %s", System.nanoTime(), queryString));
         Map<String, List<String>> parameters = new HashMap<>();
         parseQuery(queryString, parameters);
 
         int sleepLen = 0;
         try {
             sleepLen = Integer.parseInt(parameters.get(SLEEP_PARAM_NAME).get(0));
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
         }
         if (sleepLen > 0) {
             try {
                 Thread.sleep(sleepLen);
             } catch (InterruptedException ex) {
-                Logger.getLogger(ProviderIP.class.getName()).log(Level.SEVERE, null, ex);
+                LOG.log(Level.SEVERE, null, ex);
             }
         }
 
@@ -153,9 +156,9 @@ public class ProviderIP {
                 HTTP_DATE_FORMAT.format(new Date()), exchange.getRemoteAddress(), queryString, uri).getBytes();
         try {
             Date lastModified = new Date();
-            LOG.log(Level.INFO, String.format("[%,d] Write file to client URI:%s remote:%s last-modified:%d, len:%d", System.nanoTime(), uri, exchange.getRemoteAddress(), lastModified.getTime(), result.length));
+            LOG.log(Level.INFO, () -> String.format("[%,d] Write file to client URI:%s remote:%s last-modified:%d, len:%d", System.nanoTime(), uri, exchange.getRemoteAddress(), lastModified.getTime(), result.length));
             writeBody(exchange, result, result.length, lastModified);
-        } catch (Exception ex) {
+        } catch (IOException | RuntimeException ex) {
             LOG.log(Level.SEVERE, String.format("[%,d] Error in writing response to client %s", System.nanoTime(), exchange.getRemoteAddress()), ex);
         }
     }
@@ -176,7 +179,7 @@ public class ProviderIP {
         int port = Integer.parseInt(args[0]);
         String folder = args[1];
         int wait = Integer.parseInt(args[2]);
-        System.out.printf("Starting IP Provider on %d, folder %s, static file wait time %d%n", port, folder, wait);
+        LOG.log(Level.INFO, () -> String.format("Starting IP Provider on %d, folder %s, static file wait time %d%n", port, folder, wait));
         ProviderIP provider = new ProviderIP(80, folder, wait);
         provider.start();
     }

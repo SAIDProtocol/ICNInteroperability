@@ -22,6 +22,44 @@ import java.util.logging.Logger;
  */
 public class RunGateway {
 
+    public static class Counter {
+
+        private static final Logger LOG = Logger.getLogger(Counter.class.getName());
+        private static final Runtime RUNTIME = Runtime.getRuntime();
+
+        private static final int IDX_REQUEST_INCOMING = 0;
+        private static final int IDX_REQUEST_OUTGOING = 1;
+        private static final int IDX_MEMORY = 2;
+
+        private final Long[] requests = new Long[]{0L, 0L, 0L};
+
+        private void logStatus() {
+            RUNTIME.gc();
+            requests[IDX_MEMORY] = RUNTIME.totalMemory() - RUNTIME.freeMemory();
+            LOG.log(Level.INFO, "{0}:{1}:{2}", requests);
+        }
+
+        public synchronized void incomingRequestsAdded(int val) {
+            requests[IDX_REQUEST_INCOMING] += val;
+            logStatus();
+        }
+
+        public synchronized void incomingRequestsRemoved(int val) {
+            requests[IDX_REQUEST_INCOMING] -= val;
+            logStatus();
+        }
+
+        public synchronized void outgoingRequestsAdded(int val) {
+            requests[IDX_REQUEST_OUTGOING] += val;
+            logStatus();
+        }
+
+        public synchronized void outgoingRequestsRemoved(int val) {
+            requests[IDX_REQUEST_OUTGOING] -= val;
+            logStatus();
+        }
+    }
+
     public static void usage() {
         System.out.printf("usage: java %s <type>%n", RunGateway.class.getName());
         System.out.println("  type: ipip    run IP(80)-IP(10000) GW");
@@ -32,7 +70,13 @@ public class RunGateway {
 
     public static void runGatewayTwoIPs() throws IOException {
         System.out.println("Starting IP(80)-IP(10000) GW");
-        DomainAdapterIP d1 = new DomainAdapterIP("IP:80", 80), d2 = new DomainAdapterIP("IP:10000", 10000);
+        Counter counter = new Counter();
+        DomainAdapterIP d1 = new DomainAdapterIP("IP:80", 80,
+                counter::incomingRequestsAdded, counter::incomingRequestsRemoved,
+                counter::outgoingRequestsAdded, counter::outgoingRequestsRemoved);
+        DomainAdapterIP d2 = new DomainAdapterIP("IP:10000", 10000,
+                counter::incomingRequestsAdded, counter::incomingRequestsRemoved,
+                counter::outgoingRequestsAdded, counter::outgoingRequestsRemoved);
         GatewayTwoDomains g2d = new GatewayTwoDomains(d1, d2);
         g2d.start();
     }
@@ -40,16 +84,26 @@ public class RunGateway {
     public static void runGatewayIPNDN() throws IOException {
         suppressNDNLog();
         System.out.println("Starting IP(80)-NDN GW");
-        DomainAdapterIP d1 = new DomainAdapterIP("d1", 80);
-        DomainAdapterNDN d2 = new DomainAdapterNDN("d2");
+        Counter counter = new Counter();
+        DomainAdapterIP d1 = new DomainAdapterIP("d1", 80,
+                counter::incomingRequestsAdded, counter::incomingRequestsRemoved,
+                counter::outgoingRequestsAdded, counter::outgoingRequestsRemoved);
+        DomainAdapterNDN d2 = new DomainAdapterNDN("d2",
+                counter::incomingRequestsAdded, counter::incomingRequestsRemoved,
+                counter::outgoingRequestsAdded, counter::outgoingRequestsRemoved);
         GatewayTwoDomains g2d = new GatewayTwoDomains(d1, d2);
         g2d.start();
     }
 
     public static void runGatewayIPMF() throws IOException, JMFException {
         System.out.println("Starting IP(80)-MF(4096) GW");
-        DomainAdapter d1 = new DomainAdapterIP("IP:80", 80),
-                d2 = new DomainAdapterMF("d2:4096", 4096);
+        Counter counter = new Counter();
+        DomainAdapter d1 = new DomainAdapterIP("IP:80", 80,
+                counter::incomingRequestsAdded, counter::incomingRequestsRemoved,
+                counter::outgoingRequestsAdded, counter::outgoingRequestsRemoved),
+                d2 = new DomainAdapterMF("d2:4096", 4096,
+                        counter::incomingRequestsAdded, counter::incomingRequestsRemoved,
+                        counter::outgoingRequestsAdded, counter::outgoingRequestsRemoved);
         GatewayTwoDomains g2d = new GatewayTwoDomains(d1, d2);
         g2d.start();
     }
@@ -57,8 +111,13 @@ public class RunGateway {
     public static void runGatewayMFNDN() throws IOException, JMFException {
         suppressNDNLog();
         System.out.println("Starting MF(4096)-NDN GW");
-        DomainAdapter d1 = new DomainAdapterMF("d1:4096", 4096),
-                d2 = new DomainAdapterNDN("d2");
+        Counter counter = new Counter();
+        DomainAdapter d1 = new DomainAdapterMF("d1:4096", 4096,
+                counter::incomingRequestsAdded, counter::incomingRequestsRemoved,
+                counter::outgoingRequestsAdded, counter::outgoingRequestsRemoved),
+                d2 = new DomainAdapterNDN("d2",
+                        counter::incomingRequestsAdded, counter::incomingRequestsRemoved,
+                        counter::outgoingRequestsAdded, counter::outgoingRequestsRemoved);
 
         GatewayTwoDomains g2d = new GatewayTwoDomains(d1, d2);
         g2d.start();
@@ -76,7 +135,6 @@ public class RunGateway {
     };
 
     public static void main(String[] args) throws IOException, JMFException {
-        args = new String[]{"ipndn"};
         if (args.length == 0) {
             usage();
             return;

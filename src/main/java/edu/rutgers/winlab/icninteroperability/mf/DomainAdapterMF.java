@@ -41,8 +41,8 @@ public class DomainAdapterMF extends DomainAdapter {
     private boolean started = false;
     private final HashMap<Integer, GUIDListenThread> guidListeners = new HashMap<>();
 
-    public DomainAdapterMF(String name, int guid) throws JMFException {
-        super(name);
+    public DomainAdapterMF(String name, int guid, IntConsumer incomingRequestAddedHandler, IntConsumer incomingRequestRemovedHandler, IntConsumer outgoingRequestAddedHandler, IntConsumer outgoingRequestRemovedHandler) throws JMFException {
+        super(name, incomingRequestAddedHandler, incomingRequestRemovedHandler, outgoingRequestAddedHandler, outgoingRequestRemovedHandler);
         senderHandle = new JMFAPI();
         this.senderGUID = new GUID(guid);
         senderHandle.jmfopen("basic", this.senderGUID);
@@ -118,11 +118,13 @@ public class DomainAdapterMF extends DomainAdapter {
                             handler = pendingRequests.get(demux);
                             if (handler == null) {
                                 needRaise = true;
-                                pendingRequests.put(demux, handler = new ResponseHandler(DomainAdapterMF.this::incomingRequestAdded, DomainAdapterMF.this::incomingRequestRemoved));
+                                pendingRequests.put(demux, handler = new ResponseHandler(incomingRequestAddedHandler, incomingRequestRemovedHandler));
                             }
                             handler.addClient(new ClientIdentifier(domainGUID, handle, sGUID, request.RequestID));
                         }
-                        LOG.log(Level.INFO, String.format("[%,d] Got canonical request: %s, need raise: %b", System.nanoTime(), req, needRaise));
+                        final CanonicalRequest tmpReq = req;
+                        final boolean tmpNeedRaise = needRaise;
+                        LOG.log(Level.INFO, () -> String.format("[%,d] Got canonical request: %s, need raise: %b", System.nanoTime(), tmpReq, tmpNeedRaise));
                         if (needRaise) {
                             raiseRequest(req);
                         }
@@ -133,9 +135,9 @@ public class DomainAdapterMF extends DomainAdapter {
                         synchronized (pendingRequests) {
                             handler = pendingRequests.get(demux);
                             if (handler == null) {
-                                pendingRequests.put(demux, handler = new ResponseHandler(DomainAdapterMF.this::incomingRequestAdded, DomainAdapterMF.this::incomingRequestRemoved));
+                                pendingRequests.put(demux, handler = new ResponseHandler(incomingRequestAddedHandler, incomingRequestRemovedHandler));
                                 handler.addClient(new ClientIdentifier(domainGUID, handle, sGUID, request.RequestID));
-                                LOG.log(Level.INFO, String.format("[%,d] Got canonical request: %s, need raise: %b", System.nanoTime(), req, true));
+                                LOG.log(Level.INFO, () -> String.format("[%,d] Got canonical request: %s, need raise: %b", System.nanoTime(), req, true));
                                 raiseRequest(req);
                             } else {
                                 // should not reach here, dynamic request should have no pending interests
@@ -148,7 +150,7 @@ public class DomainAdapterMF extends DomainAdapter {
                             }
                         }
                     } else {
-                        LOG.log(Level.INFO, String.format("[%,d] (me:%s, client:%s, reqid:%d) Method (%s) not correct in request", System.nanoTime(), domainGUID, sGUID, request.RequestID, request.Method));
+                        LOG.log(Level.INFO, () -> String.format("[%,d] (me:%s, client:%s, reqid:%d) Method (%s) not correct in request", System.nanoTime(), domainGUID, sGUID, request.RequestID, request.Method));
                         writeBody(handle, sGUID, request.RequestID, HttpURLConnection.HTTP_NOT_IMPLEMENTED, System.currentTimeMillis(), String.format(HTTPUtility.HTTP_RESPONSE_UNSUPPORTED_ACTION_FORMAT, request.Method).getBytes(), 0);
                     }
                 }
@@ -222,12 +224,12 @@ public class DomainAdapterMF extends DomainAdapter {
 
         public void writeNotModified() throws JMFException {
             DomainAdapterMF.writeBody(Handle, ClientGUID, ClientRequestID, HttpURLConnection.HTTP_NOT_MODIFIED, System.currentTimeMillis(), null, 0);
-            LOG.log(Level.INFO, String.format("[%,d] Wrote Not Modified to %s", System.nanoTime(), this));
+            LOG.log(Level.INFO, () -> String.format("[%,d] Wrote Not Modified to %s", System.nanoTime(), this));
         }
 
         public void writeBody(byte[] buf, int size, Long time) throws JMFException {
             DomainAdapterMF.writeBody(Handle, ClientGUID, ClientRequestID, HttpURLConnection.HTTP_OK, time, buf, size);
-            LOG.log(Level.INFO, String.format("[%,d] Wrote response to %s", System.nanoTime(), this));
+            LOG.log(Level.INFO, () -> String.format("[%,d] Wrote response to %s", System.nanoTime(), this));
         }
 
     }
@@ -275,7 +277,7 @@ public class DomainAdapterMF extends DomainAdapter {
                 if (this.time == null) {
                     this.time = time;
                 } else if (!Objects.equals(time, this.time)) {
-                    LOG.log(Level.WARNING, String.format("[%,d] New time (%d) not equal to prev time (%d), set to the new time", System.nanoTime(), time, this.time));
+                    LOG.log(Level.WARNING, () -> String.format("[%,d] New time (%d) not equal to prev time (%d), set to the new time", System.nanoTime(), time, this.time));
                     this.time = time;
                 }
             }
@@ -310,8 +312,8 @@ public class DomainAdapterMF extends DomainAdapter {
 
     @Override
     public void sendDomainRequest(CanonicalRequest request) {
-        LOG.log(Level.INFO, String.format("[%,d] Got domain request for %s", System.nanoTime(), request));
-        DemultiplexingEntity demux = request.getDemux();
+        LOG.log(Level.INFO, () -> String.format("[%,d] Got domain request for %s", System.nanoTime(), request));
+        final DemultiplexingEntity demux = request.getDemux();
 
         Long reqID = null;
         synchronized (ongoingRequests) {
@@ -320,12 +322,13 @@ public class DomainAdapterMF extends DomainAdapter {
                 ongoingRequests.put(demux, requests = new LinkedList<>());
                 reqID = senderSerial.getAndIncrement();
                 reqIDMapping.put(reqID, demux);
-                LOG.log(Level.INFO, String.format("[%,d] Send new request id=%d for %s", System.nanoTime(), reqID, demux));
+                final Long tmpReqID = reqID;
+                LOG.log(Level.INFO, () -> String.format("[%,d] Send new request id=%d for %s", System.nanoTime(), tmpReqID, demux));
             } else {
-                LOG.log(Level.INFO, String.format("[%,d] Reusing existing demux: %s", System.nanoTime(), demux));
+                LOG.log(Level.INFO, () -> String.format("[%,d] Reusing existing demux: %s", System.nanoTime(), demux));
             }
             requests.add(request);
-            outgoingRequestAdded(1);
+            outgoingRequestAddedHandler.accept(1);
         }
         if (reqID == null) {
             return;
@@ -365,7 +368,7 @@ public class DomainAdapterMF extends DomainAdapter {
             }
             LinkedList<CanonicalRequest> requests = ongoingRequests.remove(demux);
             requests.forEach(r -> r.getDataHandler().handleDataFailed(demux));
-            outgoingRequestRemoved(requests.size());
+            outgoingRequestRemovedHandler.accept(requests.size());
         }
     }
 
@@ -384,22 +387,22 @@ public class DomainAdapterMF extends DomainAdapter {
                     LOG.log(Level.SEVERE, "Cannot understand response, skip");
                     continue;
                 }
-                LOG.log(Level.INFO, String.format("[%,d] Got response: reqID=%d status=%d, time=%s", System.nanoTime(),
+                LOG.log(Level.INFO, () -> String.format("[%,d] Got response: reqID=%d status=%d, time=%s", System.nanoTime(),
                         resp.RequestID, resp.StatusCode, resp.LastModified == null ? null : HTTPUtility.HTTP_DATE_FORMAT.format(resp.LastModified)));
                 synchronized (ongoingRequests) {
                     DemultiplexingEntity demux = reqIDMapping.remove(resp.RequestID);
                     if (demux == null) {
-                        LOG.log(Level.INFO, String.format("[%,d] No responses waiting for reqID:%d", System.nanoTime(), resp.RequestID));
+                        LOG.log(Level.INFO, () -> String.format("[%,d] No responses waiting for reqID:%d", System.nanoTime(), resp.RequestID));
                         continue;
                     }
                     LinkedList<CanonicalRequest> requests = ongoingRequests.remove(demux);
-                    LOG.log(Level.INFO, String.format("[%,d] %d responses waiting for reqID: %d", System.nanoTime(), requests.size(), resp.RequestID));
+                    LOG.log(Level.INFO, () -> String.format("[%,d] %d responses waiting for reqID: %d", System.nanoTime(), requests.size(), resp.RequestID));
                     if (resp.StatusCode == HttpURLConnection.HTTP_OK) {
                         requests.forEach(r -> r.getDataHandler().handleDataRetrieved(demux, resp.Body, resp.Body.length, resp.LastModified, true));
                     } else {
                         requests.forEach(r -> r.getDataHandler().handleDataFailed(demux));
                     }
-                    outgoingRequestRemoved(requests.size());
+                    outgoingRequestRemovedHandler.accept(requests.size());
                 }
             } catch (JMFException ex) {
                 LOG.log(Level.SEVERE, "JMFException", ex);

@@ -13,6 +13,7 @@ import edu.rutgers.winlab.icninteroperability.canonical.CanonicalRequest;
 import edu.rutgers.winlab.icninteroperability.canonical.CanonicalRequestDynamic;
 import edu.rutgers.winlab.icninteroperability.canonical.CanonicalRequestStatic;
 import edu.rutgers.winlab.jmfapi.GUID;
+import java.text.ParseException;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.logging.Level;
@@ -54,6 +55,7 @@ public class MFUtility {
      * and will put the start of the new line in the ptr[0].
      *
      * @param buf the buffer to be read from.
+     * @param length length of the content.
      * @param ptr as input: the start point of the line, as output: the start
      * point of the next line
      * @return the line read.
@@ -101,7 +103,7 @@ public class MFUtility {
             String reqIDStr = MFUtility.getLine(buf, length, ptr);
             try {
                 RequestID = Long.parseLong(reqIDStr);
-            } catch (Exception e) {
+            } catch (RuntimeException e) {
                 LOG.log(Level.INFO, String.format("[%,d] (me:%s, client:%s) Error in reading reqID (%s) from request.", System.nanoTime(), myGUID, clientGUID, reqIDStr), e);
                 RequestID = null;
                 return false;
@@ -111,7 +113,7 @@ public class MFUtility {
             String excludeStr = MFUtility.getLine(buf, length, ptr);
             try {
                 Exclude = HTTPUtility.HTTP_DATE_FORMAT.parse(excludeStr).getTime();
-            } catch (Exception e) {
+            } catch (ParseException | RuntimeException e) {
                 LOG.log(Level.INFO, String.format("[%,d] (me:%s, client:%s, reqid:%d) Error in getting exclude field, ignore", System.nanoTime(), myGUID, clientGUID, RequestID), e);
                 Exclude = null;
             }
@@ -143,7 +145,7 @@ public class MFUtility {
                 return buf;
             }
             int toCopy = BodyLen == 0 ? Body.length : BodyLen;
-            toCopy = Math.min(BodyLen, Body.length);
+            toCopy = Math.min(toCopy, Body.length);
             byte[] ret = new byte[buf.length + toCopy];
             System.arraycopy(buf, 0, ret, 0, buf.length);
             System.arraycopy(Body, 0, ret, buf.length, toCopy);
@@ -155,7 +157,7 @@ public class MFUtility {
             String reqIDStr = MFUtility.getLine(buf, length, ptr);
             try {
                 RequestID = Long.parseLong(reqIDStr);
-            } catch (Exception e) {
+            } catch (RuntimeException e) {
                 LOG.log(Level.INFO, String.format("[%,d] (me:%s, src:%s) Error in reading reqID (%s) from request. ", System.nanoTime(), me, src, reqIDStr), e);
                 RequestID = null;
                 return false;
@@ -163,7 +165,7 @@ public class MFUtility {
             String statusStr = MFUtility.getLine(buf, length, ptr);
             try {
                 StatusCode = Integer.parseInt(statusStr);
-            } catch (Exception e) {
+            } catch (RuntimeException e) {
                 LOG.log(Level.INFO, String.format("[%,d] (me:%s, src:%s, reqid:%d) Error in reading status (%s) from request. ", System.nanoTime(), me, src, RequestID, statusStr), e);
                 StatusCode = null;
                 return false;
@@ -172,7 +174,7 @@ public class MFUtility {
             String lastModifiedStr = MFUtility.getLine(buf, length, ptr);
             try {
                 LastModified = HTTPUtility.HTTP_DATE_FORMAT.parse(lastModifiedStr).getTime();
-            } catch (Exception e) {
+            } catch (ParseException | RuntimeException e) {
                 LOG.log(Level.INFO, String.format("[%,d] (me:%s, client:%s, reqid:%d) Error in getting lastModified field (%s), ignore", System.nanoTime(), me, src, RequestID, lastModifiedStr), e);
                 LastModified = null;
             }

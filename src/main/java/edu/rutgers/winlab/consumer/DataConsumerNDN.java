@@ -58,18 +58,19 @@ public class DataConsumerNDN implements DataConsumer {
             } else {
                 contentName = ContentName.fromNative(String.format("/%s%s", domain, name));
             }
-            LOG.log(Level.INFO, String.format("[%,d] Created ContentName %s for request:%s", System.nanoTime(), contentName, request));
+            final ContentName tmpContentName = contentName;
+            LOG.log(Level.INFO, () -> String.format("[%,d] Created ContentName %s for request:%s", System.nanoTime(), tmpContentName, request));
 
         } catch (MalformedContentNameStringException ex) {
             throw new IOException("Error in forming content name", ex);
         }
-        
-       if (request.getExclude() != null) {
-           CCNTime time = new CCNTime(request.getExclude());
-           contentName = new ContentName(contentName, time);
-       }
 
-        ContentObject obj = VersioningProfile.getFirstBlockOfLatestVersion(contentName, null, null, SystemConfiguration.LONG_TIMEOUT, null, handle);
+        if (request.getExclude() != null) {
+            CCNTime time = new CCNTime(request.getExclude());
+            contentName = new ContentName(contentName, time);
+        }
+
+        final ContentObject obj = VersioningProfile.getFirstBlockOfLatestVersion(contentName, null, null, SystemConfiguration.LONG_TIMEOUT, null, handle);
         if (obj == null) {
             throw new IOException("Cannot get the first block of request: " + request);
         }
@@ -81,7 +82,8 @@ public class DataConsumerNDN implements DataConsumer {
             LOG.log(Level.INFO, String.format("[%,d] Failed in finding version in response:%s, request:%s", System.nanoTime(), obj, request), ex);
         }
         Long exclude = request.getExclude();
-        LOG.log(Level.INFO, String.format("[%,d] Got first chunk of latest version for request:%s, name=%s, version=0x%x", System.nanoTime(), request, obj.name(), version));
+        final Long tmpVersion = version;
+        LOG.log(Level.INFO, () -> String.format("[%,d] Got first chunk of latest version for request:%s, name=%s, version=0x%x", System.nanoTime(), request, obj.name(), tmpVersion));
         if (exclude != null && (version == null || version <= exclude)) {
             LOG.log(Level.INFO, String.format("[%,d] for request:%s, latest version %d <= exclude %d, return failure", System.nanoTime(), request, version, exclude));
             throw new IOException("Cannot find a version that satisfies the request: " + request);
@@ -89,7 +91,7 @@ public class DataConsumerNDN implements DataConsumer {
         try (CCNInputStream cis = new CCNInputStream(obj, null, handle)) {
             forwardResponse(request.getDemux(), cis, request.getDataHandler(), version);
         }
-        LOG.log(Level.INFO, String.format("[%,d] Finished getting content request:%s", System.nanoTime(), request));
+        LOG.log(Level.INFO, () -> String.format("[%,d] Finished getting content request:%s", System.nanoTime(), request));
         return version;
     }
 
@@ -115,7 +117,8 @@ public class DataConsumerNDN implements DataConsumer {
         long time = System.currentTimeMillis();
         CCNTime version = new CCNTime(time);
         contentName = new ContentName(contentName, inputStr, clientName, version);
-        LOG.log(Level.INFO, String.format("[%,d] Created ContentName %s for request:%s", System.nanoTime(), contentName, request));
+        final ContentName tmpContentName = contentName;
+        LOG.log(Level.INFO, () -> String.format("[%,d] Created ContentName %s for request:%s", System.nanoTime(), tmpContentName, request));
 
         try (CCNInputStream cis = new CCNInputStream(contentName, handle)) {
             forwardResponse(request.getDemux(), cis, request.getDataHandler(), time);

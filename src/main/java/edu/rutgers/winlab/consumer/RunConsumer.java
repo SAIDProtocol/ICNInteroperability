@@ -19,6 +19,7 @@ import edu.rutgers.winlab.jmfapi.JMFException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.text.ParseException;
 import java.util.Date;
 import org.ccnx.ccn.config.ConfigurationException;
 
@@ -70,7 +71,7 @@ public class RunConsumer {
                 Long version = null;
                 try {
                     version = HTTP_DATE_FORMAT.parse(extra).getTime();
-                } catch (Exception e) {
+                } catch (ParseException | RuntimeException e) {
                 }
                 return new CanonicalRequestStatic(domain, name, version, handler);
             case "dynamic":

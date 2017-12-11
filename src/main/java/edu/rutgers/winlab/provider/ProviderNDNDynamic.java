@@ -48,11 +48,11 @@ public class ProviderNDNDynamic {
 
     private boolean handleInterest(Interest interest) {
         if (needSkip(interest.name())) {
-            LOG.log(Level.INFO, String.format("[%,d] Got interest %s, but we do not handle it.", System.nanoTime(), interest));
+            LOG.log(Level.INFO, () -> String.format("[%,d] Got interest %s, but we do not handle it.", System.nanoTime(), interest));
             return false;
         }
         if (!hasTerminalVersion(interest.name())) {
-            LOG.log(Level.INFO, String.format("[%,d] Got interest %s, static request. We do not handle it.", System.nanoTime(), interest));
+            LOG.log(Level.INFO, () -> String.format("[%,d] Got interest %s, static request. We do not handle it.", System.nanoTime(), interest));
             return false;
         }
 
@@ -61,7 +61,8 @@ public class ProviderNDNDynamic {
             name = segmentRoot(name);
         }
         if (name.count() < 3) {
-            LOG.log(Level.INFO, String.format("[%,d] Name %s does not satisfy requirement count < 3. Skip.", System.nanoTime(), name));
+            ContentName tmpName = name;
+            LOG.log(Level.INFO, () -> String.format("[%,d] Name %s does not satisfy requirement count < 3. Skip.", System.nanoTime(), tmpName));
             return false;
         }
 
@@ -86,20 +87,23 @@ public class ProviderNDNDynamic {
         }
         request = new String(requestBody);
         name = name.parent();
-        LOG.log(Level.INFO, String.format("time=%s, client=%s, request=%s, name=%s", new Date(time), clientName, request, name));
+
+        String tmpRequest = request;
+        ContentName tmpName = name;
+        LOG.log(Level.INFO, () -> String.format("time=%s, client=%s, request=%s, name=%s", new Date(time), clientName, tmpRequest, tmpName));
 
         Map<String, List<String>> parameters = new HashMap<>();
         parseQuery(request, parameters);
         int sleepLen = 0;
         try {
             sleepLen = Integer.parseInt(parameters.get(SLEEP_PARAM_NAME).get(0));
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
         }
         if (sleepLen > 0) {
             try {
                 Thread.sleep(sleepLen);
             } catch (InterruptedException ex) {
-                Logger.getLogger(ProviderIP.class.getName()).log(Level.SEVERE, null, ex);
+                LOG.log(Level.SEVERE, null, ex);
             }
         }
 
@@ -110,7 +114,7 @@ public class ProviderNDNDynamic {
             cos.addOutstandingInterest(interest);
             cos.write(response);
             cos.flush();
-            LOG.log(Level.INFO, String.format("[%,d] Response sent.", System.nanoTime()));
+            LOG.log(Level.INFO, () -> String.format("[%,d] Response sent.", System.nanoTime()));
             return true;
         } catch (IOException ex) {
             LOG.log(Level.INFO, String.format("[%,d] Error in sending response.", System.nanoTime()), ex);
@@ -126,7 +130,7 @@ public class ProviderNDNDynamic {
         }
         ContentName prefix = ContentName.fromNative(args[0]);
         ProviderNDNDynamic providerNDNDynamic = new ProviderNDNDynamic(prefix);
-        LOG.log(Level.INFO, String.format("Starting Provider NDN with prefix %s", prefix));
+        LOG.log(Level.INFO, () -> String.format("Starting Provider NDN with prefix %s", prefix));
         providerNDNDynamic.start();
     }
 

@@ -7,6 +7,7 @@ package edu.rutgers.winlab.icninteroperability;
 
 import edu.rutgers.winlab.icninteroperability.canonical.CanonicalRequest;
 import java.util.function.BiConsumer;
+import java.util.function.IntConsumer;
 
 /**
  *
@@ -18,10 +19,18 @@ public abstract class DomainAdapter implements DataHandler {
 
     private final String name;
     private BiConsumer<DomainAdapter, CanonicalRequest> requestHandler;
+    protected final IntConsumer incomingRequestAddedHandler, incomingRequestRemovedHandler,
+            outgoingRequestAddedHandler, outgoingRequestRemovedHandler;
 
-    public DomainAdapter(String name) {
+    public DomainAdapter(String name, IntConsumer incomingRequestAddedHandler, IntConsumer incomingRequestRemovedHandler, IntConsumer outgoingRequestAddedHandler, IntConsumer outgoingRequestRemovedHandler) {
         this.name = name;
+        this.incomingRequestAddedHandler = incomingRequestAddedHandler;
+        this.incomingRequestRemovedHandler = incomingRequestRemovedHandler;
+        this.outgoingRequestAddedHandler = outgoingRequestAddedHandler;
+        this.outgoingRequestRemovedHandler = outgoingRequestRemovedHandler;
     }
+    
+    
 
     public String getName() {
         return name;
@@ -50,18 +59,6 @@ public abstract class DomainAdapter implements DataHandler {
 
     public abstract void stop();
     
-    protected void incomingRequestAdded(int count) {
-    }
-    
-    protected void incomingRequestRemoved(int count) {
-    }
-    
-    protected void outgoingRequestAdded(int count) {
-    }
-    
-    protected void outgoingRequestRemoved(int count) {
-    }
-
     @Override
     public String toString() {
         return String.format("DomainAdapter:{N=%s}", name);

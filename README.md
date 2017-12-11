@@ -87,10 +87,10 @@ However, do not set sleep > 4000, since this is the timeout time in CCN. You wil
   - [x] MF content aggregator: (Use MF-IP GW to optimize)
 - [ ] Optimization: chunked transmission
 - [ ] Optimization: put a global pending request table in the gw, instead of each adapter
-- [ ] Report system
+- [x] Report system
   - [x] Basic report framework at DomainAdapter
   - [x] Report implementation at DomainAdapterIP
   - [x] Report implementation at DomainAdapterNDN
   - [x] Report implementation at DomainAdapterMF
-  - [ ] Report action implementation
+  - [x] Report action implementation
 

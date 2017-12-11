@@ -32,8 +32,8 @@ public class DomainAdapterNDN extends DomainAdapter {
 
     private CCNHandle handle;
 
-    public DomainAdapterNDN(String name) {
-        super(name);
+    public DomainAdapterNDN(String name, IntConsumer incomingRequestAddedHandler, IntConsumer incomingRequestRemovedHandler, IntConsumer outgoingRequestAddedHandler, IntConsumer outgoingRequestRemovedHandler) {
+        super(name, incomingRequestAddedHandler, incomingRequestRemovedHandler, outgoingRequestAddedHandler, outgoingRequestRemovedHandler);
     }
 
     @Override
@@ -56,10 +56,10 @@ public class DomainAdapterNDN extends DomainAdapter {
 
     private boolean handleInterest(Interest interest) {
         if (needSkip(interest.name())) {
-            LOG.log(Level.INFO, String.format("[%,d] Skip interest %s.", System.nanoTime(), interest));
+            LOG.log(Level.INFO, () -> String.format("[%,d] Skip interest %s.", System.nanoTime(), interest));
             return false;
         }
-        LOG.log(Level.INFO, String.format("[%,d] Got interest %s", System.nanoTime(), interest));
+        LOG.log(Level.INFO, () -> String.format("[%,d] Got interest %s", System.nanoTime(), interest));
 
         ContentName name = interest.name();
         String host = name.count() == 0 ? "" : new String(name.component(0));
@@ -70,7 +70,9 @@ public class DomainAdapterNDN extends DomainAdapter {
             name = name.subname(1, name.count());
         }
 
-        LOG.log(Level.INFO, String.format("[%,d] domain:%s, name:%s", System.nanoTime(), domain, name));
+        final String tmpDomain = domain;
+        final ContentName tmpName = name;
+        LOG.log(Level.INFO, () -> String.format("[%,d] domain:%s, name:%s", System.nanoTime(), tmpDomain, tmpName));
 
         if (VersioningProfile.hasTerminalVersion(interest.name())) {
             return handleDynamicRequest(interest, domain, name);
@@ -81,13 +83,14 @@ public class DomainAdapterNDN extends DomainAdapter {
 
     private boolean handleStaticRequest(Interest interest, String domain, ContentName name) {
         Long exclude = NDNUtility.getLastTimeFromExclude(interest.exclude());
-        Date d = exclude == null ? null : new Date(exclude);
+        final Date d = exclude == null ? null : new Date(exclude);
         String url = name.toString();
 
         if (url.startsWith("/")) {
             url = url.substring(1);
         }
-        LOG.log(Level.INFO, String.format("[%,d] domain:%s, name:%s, exclude: %d (%s)", System.nanoTime(), domain, url, exclude, d));
+        final String tmpUrl = url;
+        LOG.log(Level.INFO, () -> String.format("[%,d] domain:%s, name:%s, exclude: %d (%s)", System.nanoTime(), domain, tmpUrl, exclude, d));
         CanonicalRequestStatic req = new CanonicalRequestStatic(domain, url, exclude, this);
         DemultiplexingEntity demux = req.getDemux();
 
@@ -98,11 +101,12 @@ public class DomainAdapterNDN extends DomainAdapter {
             handler = pendingRequests.get(demux);
             if (handler == null) {
                 needRaise = true;
-                pendingRequests.put(demux, handler = new ResponseHandler(this::incomingRequestAdded, this::incomingRequestRemoved));
+                pendingRequests.put(demux, handler = new ResponseHandler(incomingRequestAddedHandler, incomingRequestRemovedHandler));
             }
             handler.addClient(interest);
         }
-        LOG.log(Level.INFO, String.format("[%,d] Got canonical request: %s, need raise: %b", System.nanoTime(), req, needRaise));
+        final boolean tmpNeedRaise = needRaise;
+        LOG.log(Level.INFO, () -> String.format("[%,d] Got canonical request: %s, need raise: %b", System.nanoTime(), req, tmpNeedRaise));
         if (needRaise) {
             raiseRequest(req);
         }
@@ -115,10 +119,11 @@ public class DomainAdapterNDN extends DomainAdapter {
         long time = VersioningProfile.getVersionComponentAsTimestamp(t.second()).getTime();
 
         if (name.count() < 3) {
-            LOG.log(Level.INFO, String.format("[%,d] Name %s does not satisfy requirement count < 3. Skip.", System.nanoTime(), name));
+            final ContentName tmpName = name;
+            LOG.log(Level.INFO, () -> String.format("[%,d] Name %s does not satisfy requirement count < 3. Skip.", System.nanoTime(), tmpName));
         }
 
-        String clientName = Component.printNative(name.component(name.count() - 1));
+        final String clientName = Component.printNative(name.component(name.count() - 1));
         name = name.parent();
         byte[] requestBody = name.component(name.count() - 1);
         String request = new String(requestBody);
@@ -134,7 +139,9 @@ public class DomainAdapterNDN extends DomainAdapter {
         if (url.startsWith("/")) {
             url = url.substring(1);
         }
-        LOG.log(Level.INFO, String.format("[%,d] time=%s, client=%s, requestLen=%d, name=%s", System.nanoTime(), new Date(time), clientName, requestBody.length, url));
+        final byte[] tmpRequestBody = requestBody;
+        final String tmpUrl = url;
+        LOG.log(Level.INFO, () -> String.format("[%,d] time=%s, client=%s, requestLen=%d, name=%s", System.nanoTime(), new Date(time), clientName, tmpRequestBody.length, tmpUrl));
         CanonicalRequestDynamic req = new CanonicalRequestDynamic(domain, new DemultiplexingEntityNDNDynamic(clientName, time), url, requestBody, this);
 
         ResponseHandler handler;
@@ -142,13 +149,13 @@ public class DomainAdapterNDN extends DomainAdapter {
         synchronized (pendingRequests) {
             handler = pendingRequests.get(demux);
             if (handler == null) {
-                pendingRequests.put(demux, handler = new ResponseHandler(this::incomingRequestAdded, this::incomingRequestRemoved));
+                pendingRequests.put(demux, handler = new ResponseHandler(incomingRequestAddedHandler, incomingRequestRemovedHandler));
                 handler.addClient(interest);
-                LOG.log(Level.INFO, String.format("[%,d] Got canonical request: %s, need raise: %b", System.nanoTime(), req, true));
+                LOG.log(Level.INFO, () -> String.format("[%,d] Got canonical request: %s, need raise: %b", System.nanoTime(), req, true));
                 raiseRequest(req);
             } else {
                 // should not reach here, dynamic request should have no pending interests
-                LOG.log(Level.SEVERE, String.format("[%,d] Having duplicate demux %s for dynamic request", System.nanoTime(), demux));
+                LOG.log(Level.SEVERE, () -> String.format("[%,d] Having duplicate demux %s for dynamic request", System.nanoTime(), demux));
                 return false;
             }
         }
@@ -242,7 +249,7 @@ public class DomainAdapterNDN extends DomainAdapter {
             responseFinished = true;
             pendingClients.entrySet().forEach((pendingClient) -> {
                 try {
-                    LOG.log(Level.INFO, String.format("[%,d] Skipped and closed %s due to failure", System.nanoTime(), pendingClient.getKey()));
+                    LOG.log(Level.INFO, () -> String.format("[%,d] Skipped and closed %s due to failure", System.nanoTime(), pendingClient.getKey()));
                     CCNOutputStream cos = pendingClient.getValue()[0];
                     if (cos != null) {
                         cos.close();
@@ -262,7 +269,7 @@ public class DomainAdapterNDN extends DomainAdapter {
                 if (this.time == null) {
                     this.time = time;
                 } else if (!Objects.equals(time, this.time)) {
-                    LOG.log(Level.WARNING, String.format("[%,d] New time (%d) not equal to prev time (%d), set to the new time", System.nanoTime(), time, this.time));
+                    LOG.log(Level.WARNING, () -> String.format("[%,d] New time (%d) not equal to prev time (%d), set to the new time", System.nanoTime(), time, this.time));
                     this.time = time;
                 }
             }
@@ -303,7 +310,7 @@ public class DomainAdapterNDN extends DomainAdapter {
 
     @Override
     public void sendDomainRequest(CanonicalRequest request) {
-        LOG.log(Level.INFO, String.format("[%,d] Got domain request for %s", System.nanoTime(), request));
+        LOG.log(Level.INFO, () -> String.format("[%,d] Got domain request for %s", System.nanoTime(), request));
         DemultiplexingEntity demux = request.getDemux();
 
         NDNRequestHandler handler;
@@ -312,7 +319,7 @@ public class DomainAdapterNDN extends DomainAdapter {
             if (handler == null) {
                 ongoingRequests.put(demux, handler = new NDNRequestHandler(request, this::ndnRequestFinishedHandler));
                 handler.startRequest();
-                outgoingRequestAdded(1);
+                outgoingRequestAddedHandler.accept(1);
             } else {
                 handler.addDataHandler(request.getDataHandler());
             }
@@ -322,7 +329,7 @@ public class DomainAdapterNDN extends DomainAdapter {
     private void ndnRequestFinishedHandler(DemultiplexingEntity demux) {
         synchronized (ongoingRequests) {
             ongoingRequests.remove(demux);
-            outgoingRequestRemoved(1);
+            outgoingRequestRemovedHandler.accept(1);
         }
     }
 
@@ -358,7 +365,7 @@ public class DomainAdapterNDN extends DomainAdapter {
 
         @Override
         public void run() {
-            LOG.log(Level.INFO, String.format("[%,d] Start request for %s", System.nanoTime(), firstRequest.getDemux()));
+            LOG.log(Level.INFO, () -> String.format("[%,d] Start request for %s", System.nanoTime(), firstRequest.getDemux()));
 
             String domain = firstRequest.getDestDomain(), name = firstRequest.getTargetName();
             ContentName contentName;
@@ -368,14 +375,14 @@ public class DomainAdapterNDN extends DomainAdapter {
                 } else {
                     contentName = ContentName.fromNative(String.format("/%s/%s", domain, name));
                 }
-                LOG.log(Level.INFO, String.format("[%,d] Created ContentName %s for demux:%s", System.nanoTime(), contentName, firstRequest.getDemux()));
+                LOG.log(Level.INFO, () -> String.format("[%,d] Created ContentName %s for demux:%s", System.nanoTime(), contentName, firstRequest.getDemux()));
 
                 if (firstRequest instanceof CanonicalRequestStatic) {
                     requestStaticData(firstRequest.getDemux(), ((CanonicalRequestStatic) firstRequest).getExclude(), contentName);
                 } else if (firstRequest instanceof CanonicalRequestDynamic) {
                     requestDynamicData(firstRequest.getDemux(), ((CanonicalRequestDynamic) firstRequest).getInput(), contentName);
                 } else {
-                    LOG.log(Level.INFO, String.format("[%,d] Unknown request type %s, return failure", System.nanoTime(), firstRequest));
+                    LOG.log(Level.INFO, () -> String.format("[%,d] Unknown request type %s, return failure", System.nanoTime(), firstRequest));
                     handlers.forEach(h -> h.handleDataFailed(firstRequest.getDemux()));
                 }
             } catch (MalformedContentNameStringException ex) {
@@ -395,7 +402,7 @@ public class DomainAdapterNDN extends DomainAdapter {
                 }
             }
             handlers.forEach(h -> h.handleDataRetrieved(demux, buf, 0, responseTime, true));
-            LOG.log(Level.INFO, String.format("[%,d] Finished getting content demux:%s", System.nanoTime(), demux));
+            LOG.log(Level.INFO, () -> String.format("[%,d] Finished getting content demux:%s", System.nanoTime(), demux));
         }
 
         private void requestDynamicData(DemultiplexingEntity demux, byte[] input, ContentName base) {
@@ -405,7 +412,7 @@ public class DomainAdapterNDN extends DomainAdapter {
                 responseTime = time / 1000 * 1000 + ((time % 1000 == 0) ? 0 : 1000);
                 CCNTime version = new CCNTime(time);
                 ContentName contentName = new ContentName(base, inputStr, getName(), version);
-                LOG.log(Level.INFO, String.format("[%,d] Created ContentName %s for demux:%s", System.nanoTime(), contentName, demux));
+                LOG.log(Level.INFO, () -> String.format("[%,d] Created ContentName %s for demux:%s", System.nanoTime(), contentName, demux));
 
                 try (CCNInputStream cis = new CCNInputStream(contentName, handle)) {
                     forwardResponse(demux, cis);
@@ -432,9 +439,9 @@ public class DomainAdapterNDN extends DomainAdapter {
                 long version = responseTime = VersioningProfile.getLastVersionAsTimestamp(obj.name()).getTime();
                 // round the time to the next second
                 responseTime = responseTime / 1000 * 1000 + ((responseTime % 1000 == 0) ? 0 : 1000);
-                LOG.log(Level.INFO, String.format("[%,d] Got first chunk of latest version for demux:%s, name=%s, version=0x%x exclude=0x%x", System.nanoTime(), demux, obj.name(), version, exclude));
+                LOG.log(Level.INFO, () -> String.format("[%,d] Got first chunk of latest version for demux:%s, name=%s, version=0x%x exclude=0x%x", System.nanoTime(), demux, obj.name(), version, exclude));
                 if (exclude != null && version <= exclude) {
-                    LOG.log(Level.INFO, String.format("[%,d] for demux:%s, latest version %d <= exclude %d, return failure", System.nanoTime(), demux, version, exclude));
+                    LOG.log(Level.INFO, () -> String.format("[%,d] for demux:%s, latest version %d <= exclude %d, return failure", System.nanoTime(), demux, version, exclude));
                     handlers.forEach(h -> h.handleDataFailed(firstRequest.getDemux()));
                     return;
                 }

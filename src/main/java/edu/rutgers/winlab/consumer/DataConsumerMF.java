@@ -38,10 +38,8 @@ public class DataConsumerMF implements DataConsumer {
         handle.jmfopen("basic", myGUID);
     }
 
-    
-
     private Long handleRequest(CanonicalRequest request) throws IOException {
-        LOG.log(Level.INFO, String.format("Request: %s", request));
+        LOG.log(Level.INFO, () -> String.format("Request: %s", request));
         String domain = request.getDestDomain(), name = request.getTargetName();
         if (name.startsWith("/")) {
             name = name.substring(1);

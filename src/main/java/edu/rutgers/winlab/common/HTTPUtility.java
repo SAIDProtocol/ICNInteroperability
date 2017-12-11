@@ -135,7 +135,7 @@ public class HTTPUtility {
         int requestBodyLen = -1;
         try {
             requestBodyLen = Integer.parseInt(strRequestBodyLen);
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             // ignore if missing, cannot understand
         }
         if (requestBodyLen < 0) {

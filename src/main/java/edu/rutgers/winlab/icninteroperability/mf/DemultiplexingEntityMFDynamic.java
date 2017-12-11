@@ -54,10 +54,7 @@ public class DemultiplexingEntityMFDynamic implements DemultiplexingEntity {
         if (this.clientReqID != other.clientReqID) {
             return false;
         }
-        if (!Objects.equals(this.clientGUID, other.clientGUID)) {
-            return false;
-        }
-        return true;
+        return Objects.equals(this.clientGUID, other.clientGUID);
     }
 
     @Override
