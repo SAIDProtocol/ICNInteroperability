@@ -143,12 +143,11 @@ public class RunConsumerPressure {
         Random rand = new Random(System.currentTimeMillis());
         try {
 
-            DataConsumer consumer = getConsumerFromType(args[2], args[3]);
-            if (consumer == null) {
-                return;
-            }
-
             for (int i = 0; i < count; i++) {
+                DataConsumer consumer = getConsumerFromType(args[2], args[3] + "|" + rand.nextLong());
+                if (consumer == null) {
+                    return;
+                }
                 CanonicalRequest request = getRequest(args[1], args[4], args[5] + "/" + rand.nextLong(), args.length < 7 ? null : args[6], DATA_HANDLER);
                 if (request == null) {
                     return;
