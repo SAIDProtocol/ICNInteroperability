@@ -145,8 +145,8 @@ public class RunGateway {
             usage();
             return;
         }
-        Timer t = new Timer("MemoryUsageReport", true);
-        t.scheduleAtFixedRate(MEMORY_USAGE_REPORT_TASK, 0, 1000);
+//        Timer t = new Timer("MemoryUsageReport", true);
+//        t.scheduleAtFixedRate(MEMORY_USAGE_REPORT_TASK, 0, 1000);
         switch (args[0]) {
             case "ipip":
                 runGatewayTwoIPs();
