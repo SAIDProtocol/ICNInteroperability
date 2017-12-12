@@ -30,13 +30,19 @@ public class RunGateway {
         private static final int IDX_REQUEST_INCOMING = 0;
         private static final int IDX_REQUEST_OUTGOING = 1;
         private static final int IDX_MEMORY = 2;
+        private static final int IDX_TIME = 3;
+        private static final int GC_ROUND_COUNT = 128;
 
-        private final Long[] requests = new Long[]{0L, 0L, 0L};
+        private static int count = 0;
+        private final Long[] requests = new Long[]{0L, 0L, 0L, 0L};
 
         private void logStatus() {
-            RUNTIME.gc();
+            count++;
+            if (count % GC_ROUND_COUNT == 0)
+                RUNTIME.gc();
             requests[IDX_MEMORY] = RUNTIME.totalMemory() - RUNTIME.freeMemory();
-            LOG.log(Level.INFO, "{0}:{1}:{2}", requests);
+            requests[IDX_TIME] = System.nanoTime();
+            LOG.log(Level.INFO, "{3}:{0}:{1}:{2}", requests);
         }
 
         public synchronized void incomingRequestsAdded(int val) {
