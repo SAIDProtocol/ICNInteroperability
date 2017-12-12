@@ -14,6 +14,8 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.logging.*;
 import org.ccnx.ccn.*;
 import org.ccnx.ccn.config.*;
@@ -33,6 +35,31 @@ public class ProviderNDNDynamic {
 
     private final ContentName prefix;
     private CCNHandle handle = null;
+    private Timer timer = new Timer("ProviderOutput");
+
+    private class WriteTask extends TimerTask {
+
+        private final Interest interest;
+        private final byte[] response;
+
+        public WriteTask(Interest interest, byte[] response) {
+            this.interest = interest;
+            this.response = response;
+        }
+
+        @Override
+        public void run() {
+            try (CCNOutputStream cos = new CCNOutputStream(interest.name(), handle)) {
+                cos.addOutstandingInterest(interest);
+                cos.write(response);
+                cos.flush();
+                LOG.log(Level.INFO, () -> String.format("[%,d] Response sent.", System.nanoTime()));
+            } catch (IOException ex) {
+                LOG.log(Level.INFO, String.format("[%,d] Error in sending response.", System.nanoTime()), ex);
+            }
+        }
+
+    }
 
     public ProviderNDNDynamic(ContentName prefix) throws ConfigurationException, IOException {
         this.prefix = prefix;
@@ -99,27 +126,17 @@ public class ProviderNDNDynamic {
             sleepLen = Integer.parseInt(parameters.get(SLEEP_PARAM_NAME).get(0));
         } catch (RuntimeException e) {
         }
-        if (sleepLen > 0) {
-            try {
-                Thread.sleep(sleepLen);
-            } catch (InterruptedException ex) {
-                LOG.log(Level.SEVERE, null, ex);
-            }
-        }
 
         byte[] response = String.format("This is a simple response from NDN dynamic provider!%nRequest time: %s%nMy Time: %s %nYou are: %s%nInput: %s%nRemaining: %s%n",
                 new Date(time), new Date(System.currentTimeMillis()), clientName, request, name).getBytes();
-
-        try (CCNOutputStream cos = new CCNOutputStream(interest.name(), handle)) {
-            cos.addOutstandingInterest(interest);
-            cos.write(response);
-            cos.flush();
-            LOG.log(Level.INFO, () -> String.format("[%,d] Response sent.", System.nanoTime()));
-            return true;
-        } catch (IOException ex) {
-            LOG.log(Level.INFO, String.format("[%,d] Error in sending response.", System.nanoTime()), ex);
-            return false;
+        WriteTask wt = new WriteTask(interest, response);
+        if (sleepLen > 0) {
+            timer.schedule(wt, sleepLen);
+        } else {
+            wt.run();
         }
+        return true;
+
     }
 
     public static void main(String[] args) throws ConfigurationException, IOException, MalformedContentNameStringException {
