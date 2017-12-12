@@ -31,7 +31,7 @@ public class RunGateway {
         private static final int IDX_REQUEST_OUTGOING = 1;
         private static final int IDX_MEMORY = 2;
         private static final int IDX_TIME = 3;
-        private static final int GC_ROUND_COUNT = 128;
+        private static final int GC_ROUND_COUNT = 4;
 
         private static int count = 0;
         private final Long[] requests = new Long[]{0L, 0L, 0L, 0L};
