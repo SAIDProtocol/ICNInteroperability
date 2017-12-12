@@ -21,7 +21,8 @@ import java.util.logging.Logger;
  * @author ubuntu
  */
 public class RunGateway {
-        private static final Runtime RUNTIME = Runtime.getRuntime();
+
+    private static final Runtime RUNTIME = Runtime.getRuntime();
 
     public static class Counter {
 
@@ -139,14 +140,6 @@ public class RunGateway {
 //            LOG.log(Level.INFO, "Memory usage: {0}", memory);
 //        }
 //    };
-    
-    private static final TimerTask GC_TASK =new TimerTask() {
-        @Override
-        public void run() {
-            RUNTIME.gc();
-        }
-    };
-    
     public static void main(String[] args) throws IOException, JMFException {
         if (args.length == 0) {
             usage();
@@ -154,8 +147,17 @@ public class RunGateway {
         }
 //        Timer t = new Timer("MemoryUsageReport", true);
 //        t.scheduleAtFixedRate(MEMORY_USAGE_REPORT_TASK, 0, 1000);
-        Timer t = new Timer("GC", true);
-        t.scheduleAtFixedRate(GC_TASK, 0, 10);
+        Thread gcThread = new Thread(() -> {
+            while (true) {
+                RUNTIME.gc();
+                try {
+                    Thread.sleep(1);
+                } catch (InterruptedException ex) {
+                }
+            }
+        });
+        gcThread.setDaemon(true);
+        gcThread.start();
         switch (args[0]) {
             case "ipip":
                 runGatewayTwoIPs();
