@@ -6,7 +6,6 @@
 package edu.rutgers.winlab.consumer;
 
 import static edu.rutgers.winlab.common.HTTPUtility.CROSS_DOMAIN_HOST_IP;
-import static edu.rutgers.winlab.common.HTTPUtility.HTTP_DATE_FORMAT;
 import static edu.rutgers.winlab.common.MFUtility.CROSS_DOMAIN_HOST_MF;
 import static edu.rutgers.winlab.common.NDNUtility.CROSS_DOMAIN_HOST_NDN;
 import static edu.rutgers.winlab.common.NDNUtility.suppressNDNLog;
@@ -14,10 +13,8 @@ import edu.rutgers.winlab.icninteroperability.DataHandler;
 import edu.rutgers.winlab.icninteroperability.DemultiplexingEntity;
 import edu.rutgers.winlab.icninteroperability.canonical.CanonicalRequest;
 import edu.rutgers.winlab.icninteroperability.canonical.CanonicalRequestDynamic;
-import edu.rutgers.winlab.icninteroperability.canonical.CanonicalRequestStatic;
 import edu.rutgers.winlab.jmfapi.JMFException;
 import java.io.IOException;
-import java.text.ParseException;
 import java.util.Random;
 import org.ccnx.ccn.config.ConfigurationException;
 
@@ -25,7 +22,7 @@ import org.ccnx.ccn.config.ConfigurationException;
  *
  * @author root
  */
-public class RunConsumerPressure {
+public class RunDynamicConsumerPressure {
 
     public static final String SYSTEM_OUT_NAME = "System.out";
 
@@ -51,7 +48,7 @@ public class RunConsumerPressure {
         }
     }
 
-    private static CanonicalRequest getRequest(String type, String domain, String name, String extra, DataHandler handler) {
+    private static CanonicalRequest getRequest(String domain, String name, String extra, DataHandler handler) {
         switch (domain) {
             case CROSS_DOMAIN_HOST_IP:
             case CROSS_DOMAIN_HOST_NDN:
@@ -63,20 +60,7 @@ public class RunConsumerPressure {
                 return null;
         }
 
-        switch (type) {
-            case "static":
-                Long version = null;
-                try {
-                    version = HTTP_DATE_FORMAT.parse(extra).getTime();
-                } catch (ParseException | RuntimeException e) {
-                }
-                return new CanonicalRequestStatic(domain, name, version, handler);
-            case "dynamic":
-                return new CanonicalRequestDynamic(domain, null, name, extra == null ? new byte[0] : extra.getBytes(), handler);
-            default:
-                System.err.printf("Cannot understand command type:%s%n", type);
-                return null;
-        }
+        return new CanonicalRequestDynamic(domain, null, name, extra == null ? new byte[0] : extra.getBytes(), handler);
     }
 
     private static int successCount = 0, failCount = 0;
@@ -149,7 +133,7 @@ public class RunConsumerPressure {
                 if (consumer == null) {
                     return;
                 }
-                CanonicalRequest request = getRequest("dynamic", args[3], args[4] + "/" + rand.nextLong(), args.length < 6 ? null : args[5], DATA_HANDLER);
+                CanonicalRequest request = getRequest(args[3], args[4] + "/" + rand.nextLong(), args.length < 6 ? null : args[5], DATA_HANDLER);
                 if (request == null) {
                     return;
                 }
