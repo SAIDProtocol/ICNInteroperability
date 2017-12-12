@@ -30,11 +30,10 @@ public class RunConsumerPressure {
     public static final String SYSTEM_OUT_NAME = "System.out";
 
     private static void usage() {
-        System.err.printf("Usage: java %s <count> <static|dynamic> <consumerType> <consumerName> <dstDomain> <name> <[exclude|input]>%n", RunConsumer.class.getName());
+        System.err.printf("Usage: java %s <count> <consumerType> <consumerName> <dstDomain> <name> [<input>]%n", RunConsumer.class.getName());
         System.err.printf("    count: # of requests generated%n");
         System.err.printf("    consumerType dstDomain: %s|%s|%s%n", CROSS_DOMAIN_HOST_IP, CROSS_DOMAIN_HOST_NDN, CROSS_DOMAIN_HOST_MF);
-        System.err.printf("    for static, the last component would be seen as exclude [using HTTP date format]. if cannot be parsed, null will be used%n");
-        System.err.printf("    for dynamic, the last component would be seen as input. Empty string will be used if this component does not exist%n");
+        System.err.printf("    the last component would be seen as input. Empty string will be used if this component does not exist%n");
     }
 
     private static DataConsumer getConsumerFromType(String type, String name) throws ConfigurationException, IOException, JMFException {
@@ -128,7 +127,7 @@ public class RunConsumerPressure {
 
     public static void main(String[] args) throws InterruptedException {
         suppressNDNLog();
-        if (args.length < 6) {
+        if (args.length < 5) {
             usage();
             return;
         }
@@ -146,11 +145,11 @@ public class RunConsumerPressure {
         try {
 
             for (int i = 0; i < count; i++) {
-                DataConsumer consumer = getConsumerFromType(args[2], args[3] + "|" + rand.nextLong());
+                DataConsumer consumer = getConsumerFromType(args[1], args[2] + "|" + rand.nextLong());
                 if (consumer == null) {
                     return;
                 }
-                CanonicalRequest request = getRequest(args[1], args[4], args[5] + "/" + rand.nextLong(), args.length < 7 ? null : args[6], DATA_HANDLER);
+                CanonicalRequest request = getRequest("dynamic", args[3], args[4] + "/" + rand.nextLong(), args.length < 6 ? null : args[5], DATA_HANDLER);
                 if (request == null) {
                     return;
                 }
