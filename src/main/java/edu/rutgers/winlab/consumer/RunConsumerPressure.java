@@ -162,6 +162,7 @@ public class RunConsumerPressure {
         }
         for (int i = 0; i < count; i++) {
             threads[i].start();
+            Thread.sleep(5);
         }
         for (int i = 0; i < count; i++) {
             threads[i].join();
