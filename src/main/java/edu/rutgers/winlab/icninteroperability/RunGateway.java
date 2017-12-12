@@ -31,15 +31,15 @@ public class RunGateway {
         private static final int IDX_REQUEST_OUTGOING = 1;
         private static final int IDX_MEMORY = 2;
         private static final int IDX_TIME = 3;
-        private static final int GC_ROUND_COUNT = 4;
+//        private static final int GC_ROUND_COUNT = 4;
 
         private static int count = 0;
         private final Long[] requests = new Long[]{0L, 0L, 0L, 0L};
 
         private void logStatus() {
             count++;
-            if (count % GC_ROUND_COUNT == 0)
-                RUNTIME.gc();
+//            if (count % GC_ROUND_COUNT == 0)
+//                RUNTIME.gc();
             requests[IDX_MEMORY] = RUNTIME.totalMemory() - RUNTIME.freeMemory();
             requests[IDX_TIME] = System.nanoTime();
             LOG.log(Level.INFO, "{3}:{0}:{1}:{2}", requests);
@@ -130,23 +130,29 @@ public class RunGateway {
     }
     private static final Logger LOG = Logger.getLogger(RunGateway.class.getName());
 
-    private static final TimerTask MEMORY_USAGE_REPORT_TASK = new TimerTask() {
-        @Override
-        public void run() {
-            Runtime runtime = Runtime.getRuntime();
-            runtime.gc();
-            long memory = runtime.totalMemory() - runtime.freeMemory();
-            LOG.log(Level.INFO, "Memory usage: {0}", memory);
-        }
-    };
-
+//    private static final TimerTask MEMORY_USAGE_REPORT_TASK = new TimerTask() {
+//        @Override
+//        public void run() {
+//            Runtime runtime = Runtime.getRuntime();
+//            runtime.gc();
+//            long memory = runtime.totalMemory() - runtime.freeMemory();
+//            LOG.log(Level.INFO, "Memory usage: {0}", memory);
+//        }
+//    };
     public static void main(String[] args) throws IOException, JMFException {
         if (args.length == 0) {
             usage();
             return;
         }
-        Timer t = new Timer("MemoryUsageReport", true);
-        t.scheduleAtFixedRate(MEMORY_USAGE_REPORT_TASK, 0, 1000);
+//        Timer t = new Timer("MemoryUsageReport", true);
+//        t.scheduleAtFixedRate(MEMORY_USAGE_REPORT_TASK, 0, 1000);
+        Thread gcThread = new Thread(() -> {
+            while (true) {
+                System.gc();
+            }
+        });
+        gcThread.setDaemon(true);
+        gcThread.start();
         switch (args[0]) {
             case "ipip":
                 runGatewayTwoIPs();
